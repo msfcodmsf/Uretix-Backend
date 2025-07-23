@@ -67,6 +67,8 @@ router.post("/register/user", async (req: Request, res: Response) => {
 // Üretici kaydı
 router.post("/register/producer", async (req: Request, res: Response) => {
   try {
+    console.log("Producer registration request received:", req.body);
+
     const {
       email,
       password,
@@ -135,7 +137,7 @@ router.post("/register/producer", async (req: Request, res: Response) => {
     // Generate token
     const token = generateToken(user._id.toString());
 
-    res.status(201).json({
+    const response = {
       message: "Üretici başarıyla oluşturuldu",
       token,
       user: {
@@ -152,8 +154,12 @@ router.post("/register/producer", async (req: Request, res: Response) => {
         phoneNumber: producer.phoneNumber,
         isVerified: producer.isVerified,
       },
-    });
+    };
+
+    console.log("Sending successful response:", response);
+    res.status(201).json(response);
   } catch (error: unknown) {
+    console.error("Producer registration error:", error);
     res.status(500).json({ message: "Sunucu hatası", error: String(error) });
   }
 });
