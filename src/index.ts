@@ -42,20 +42,13 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 };
 
-console.log("CORS Origins:", corsOptions.origin);
-console.log("Environment Variables:");
-console.log("FRONTEND_URL:", process.env.FRONTEND_URL);
-console.log("FRONTEND_USER:", process.env.FRONTEND_USER);
-console.log("NODE_ENV:", process.env.NODE_ENV);
-
 // Middleware
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // MongoDB Connection
-const MONGODB_URI =
-  process.env.MONGO_DB_URL || "mongodb://localhost:27017/uretix";
+const MONGODB_URI = process.env.MONGO_DB_URL || "";
 
 mongoose
   .connect(MONGODB_URI)

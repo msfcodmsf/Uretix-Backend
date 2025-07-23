@@ -26,6 +26,90 @@ const upload = multer({
   },
 });
 
+// Get all producers (for debugging)
+router.get("/", async (req, res) => {
+  try {
+    const { Producer } = await import("../models/Producer.model");
+    const producers = await Producer.find()
+      .populate("user", "firstName lastName email")
+      .lean();
+
+    res.json({
+      success: true,
+      data: producers,
+    });
+  } catch (error) {
+    console.error("Error getting producers:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to get producers",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+// Create producer profile (for debugging)
+router.post("/", async (req, res) => {
+  try {
+    const { Producer } = await import("../models/Producer.model");
+    const { User } = await import("../models/User.model");
+    const { Types } = await import("mongoose");
+
+    const {
+      userId,
+      companyName,
+      taxIdNumber,
+      phoneNumber,
+      gender,
+      backupPhone,
+    } = req.body;
+
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if producer already exists
+    const existingProducer = await Producer.findOne({ user: userId });
+    if (existingProducer) {
+      return res.status(400).json({
+        success: false,
+        message: "Producer profile already exists for this user",
+      });
+    }
+
+    // Create producer
+    const producer = new Producer({
+      user: new Types.ObjectId(userId),
+      companyName,
+      taxIdNumber,
+      phoneNumber,
+      gender,
+      backupPhone,
+      isVerified: false,
+    });
+
+    await producer.save();
+
+    res.json({
+      success: true,
+      message: "Producer profile created successfully",
+      data: producer,
+    });
+  } catch (error) {
+    console.error("Error creating producer:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create producer",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
 // Get producer my shop window
 router.get(
   "/my-shop-window",
@@ -40,6 +124,7 @@ router.get(
           message: "User not authenticated",
         });
       }
+
       const profile = await ProducerService.getProfile(producerId);
 
       res.json({
@@ -51,6 +136,38 @@ router.get(
       res.status(500).json({
         success: false,
         message: "Failed to get producer my shop window",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
+
+// Get producer profile (kişisel bilgiler)
+router.get(
+  "/profile",
+  authenticateToken,
+  validateProducerRole,
+  async (req: AuthRequest, res) => {
+    try {
+      const producerId = req.user?.id;
+      if (!producerId) {
+        return res.status(401).json({
+          success: false,
+          message: "User not authenticated",
+        });
+      }
+
+      const profile = await ProducerService.getProfile(producerId);
+
+      res.json({
+        success: true,
+        data: profile,
+      });
+    } catch (error) {
+      console.error("Error getting producer profile:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to get producer profile",
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }
@@ -88,6 +205,44 @@ router.put(
       res.status(500).json({
         success: false,
         message: "Failed to update producer my shop window",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
+
+// Update producer profile (kişisel bilgiler)
+router.put(
+  "/profile",
+  authenticateToken,
+  validateProducerRole,
+  async (req: AuthRequest, res) => {
+    try {
+      const producerId = req.user?.id;
+      if (!producerId) {
+        return res.status(401).json({
+          success: false,
+          message: "User not authenticated",
+        });
+      }
+
+      const profileData = req.body;
+
+      const updatedProfile = await ProducerService.updatePersonalProfile(
+        producerId,
+        profileData
+      );
+
+      res.json({
+        success: true,
+        message: "Personal profile updated successfully",
+        data: updatedProfile,
+      });
+    } catch (error) {
+      console.error("Error updating producer personal profile:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to update producer personal profile",
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }

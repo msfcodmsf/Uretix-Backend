@@ -24,6 +24,7 @@ export interface ProducerProfileData {
   email: string;
   phone: string;
   backupPhone: string;
+  profileImage?: string;
 
   // About Us
   description: string;
@@ -48,50 +49,118 @@ export class ProducerService {
   // Get producer profile
   static async getProfile(producerId: string) {
     try {
-      const producer = await Producer.findById(producerId).lean();
+      // Get user data first
+      const user = await User.findById(producerId).select("-password").lean();
 
-      if (!producer) {
-        throw new Error("Producer not found");
+      if (!user) {
+        throw new Error("User not found");
       }
 
-      // Get user data
-      const user = await User.findById(producer.user)
-        .select("-password")
-        .lean();
+      // Producer'ı user'ın producer referansı ile bul
+      const producer = await Producer.findOne({
+        user: new Types.ObjectId(producerId),
+      }).lean();
+
+      // Eğer producer yoksa, sadece user bilgilerini kullan
+      if (!producer) {
+        return {
+          producer: {
+            id: user._id,
+            firstName: user.firstName || "",
+            lastName: user.lastName || "",
+            email: user.email || "",
+            profileImage: user.profileImage || "",
+            companyName: "",
+            phoneNumber: "",
+            gender: "",
+            backupPhone: "",
+          },
+          storefront: {
+            companyName: "",
+            taxOffice: "",
+            taxNumber: "",
+            city: "",
+            district: "",
+            address: "",
+            mainProductionCategory: "",
+            subProductionCategories: [],
+            companyDescription: "",
+            companyVideo: "",
+            deliveryRegions: [],
+            estimatedDeliveryTime: "",
+            shippingMethod: "",
+            nonDeliveryRegions: [],
+            customProduction: false,
+            averageProductionTime: "",
+            sampleDelivery: false,
+            offerArea: "",
+            serviceTags: [],
+            interestTags: [],
+          },
+        };
+      }
 
       const storefront = await ProducerStorefront.findOne({
-        producer: producerId,
+        producer: producer._id,
       }).lean();
+
+      // Eğer storefront yoksa, producer'dan gelen companyName'i kullan
+      const storefrontData: any = storefront || {};
+
+      // Şirket adını öncelik sırasına göre belirle:
+      // 1. Storefront'ta varsa onu kullan
+      // 2. Producer'da varsa onu kullan
+      // 3. Hiçbiri yoksa boş string
+      if (!storefrontData.companyName) {
+        if (producer.companyName) {
+          storefrontData.companyName = producer.companyName;
+        } else {
+          storefrontData.companyName = "";
+        }
+      }
 
       return {
         producer: {
-          ...producer,
-          ...user,
+          id: producer._id,
+          firstName: user.firstName || "",
+          lastName: user.lastName || "",
+          email: user.email || "",
+          profileImage: user.profileImage || producer.profileImage || "",
+          companyName: producer.companyName || "",
+          phoneNumber: producer.phoneNumber || "",
+          gender: producer.gender || "",
+          backupPhone: producer.backupPhone || "",
         },
-        storefront: storefront || {},
+        storefront: storefrontData,
       };
     } catch (error) {
       throw error;
     }
   }
 
-  // Update producer profile
+  // Update producer profile (for storefront/vitrinim)
   static async updateProfile(
     producerId: string,
     data: Partial<ProducerProfileData>
   ) {
     try {
-      const producer = await Producer.findById(producerId);
+      // Find producer by user ID
+      const producer = await Producer.findOne({
+        user: new Types.ObjectId(producerId),
+      });
+
       if (!producer) {
         throw new Error("Producer not found");
       }
 
       // Update user data
-      const user = await User.findById(producer.user);
+      const user = await User.findById(producerId);
+
       if (user) {
         if (data.firstName) user.firstName = data.firstName;
         if (data.lastName) user.lastName = data.lastName;
         if (data.email) user.email = data.email;
+        if (data.profileImage) user.profileImage = data.profileImage;
         await user.save();
       }
 
@@ -99,6 +168,7 @@ export class ProducerService {
       if (data.phone) producer.phoneNumber = data.phone;
       if (data.gender) producer.gender = data.gender;
       if (data.backupPhone) producer.backupPhone = data.backupPhone;
+      if (data.profileImage) producer.profileImage = data.profileImage;
 
       await producer.save();
 
@@ -174,6 +244,48 @@ export class ProducerService {
       return {
         producer: producer.toObject(),
         storefront: storefront.toObject(),
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Update producer personal profile (kişisel bilgiler)
+  static async updatePersonalProfile(
+    producerId: string,
+    data: Partial<ProducerProfileData>
+  ) {
+    try {
+      // Find producer by user ID
+      const producer = await Producer.findOne({
+        user: new Types.ObjectId(producerId),
+      });
+
+      if (!producer) {
+        throw new Error("Producer not found");
+      }
+
+      // Update user data
+      const user = await User.findById(producerId);
+
+      if (user) {
+        if (data.firstName) user.firstName = data.firstName;
+        if (data.lastName) user.lastName = data.lastName;
+        if (data.email) user.email = data.email;
+        if (data.profileImage) user.profileImage = data.profileImage;
+        await user.save();
+      }
+
+      // Update producer data
+      if (data.phone) producer.phoneNumber = data.phone;
+      if (data.gender) producer.gender = data.gender;
+      if (data.backupPhone) producer.backupPhone = data.backupPhone;
+      if (data.profileImage) producer.profileImage = data.profileImage;
+
+      await producer.save();
+
+      return {
+        producer: producer.toObject(),
       };
     } catch (error) {
       throw error;

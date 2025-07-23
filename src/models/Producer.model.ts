@@ -10,6 +10,7 @@ export interface IProducer {
   phoneNumber?: string;
   gender?: string;
   backupPhone?: string;
+  profileImage?: string;
   isVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -50,6 +51,10 @@ const producerSchema = new Schema<IProducer & Document>(
       type: String,
       trim: true,
       maxlength: 20,
+    },
+    profileImage: {
+      type: String,
+      trim: true,
     },
     isVerified: {
       type: Boolean,
