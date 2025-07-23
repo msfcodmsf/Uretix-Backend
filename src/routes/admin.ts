@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
-import { User, UserRole } from "../models/User";
-import { Producer } from "../models/Producer";
-import { auth } from "../middleware/auth";
+import { User, UserRole } from "../models/User.model";
+import { Producer } from "../models/Producer.model";
+import { authenticateToken } from "../middleware/auth";
 import { requireAdmin, requireSuperAdmin } from "../middleware/roleAuth";
 
 const router = Router();
@@ -9,7 +9,7 @@ const router = Router();
 // Tüm kullanıcıları listele (admin ve super admin)
 router.get(
   "/users",
-  auth,
+  authenticateToken,
   requireAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -70,7 +70,7 @@ router.get(
 // Tüm kullanıcıları detaylı bilgilerle getir (admin ve super admin)
 router.get(
   "/users-detailed",
-  auth,
+  authenticateToken,
   requireAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -157,7 +157,7 @@ router.get(
 // Tüm üreticileri listele (admin ve super admin)
 router.get(
   "/producers",
-  auth,
+  authenticateToken,
   requireAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -174,7 +174,7 @@ router.get(
 // Kullanıcı rolünü güncelle (sadece super admin)
 router.put(
   "/users/:userId/role",
-  auth,
+  authenticateToken,
   requireSuperAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -208,7 +208,7 @@ router.put(
 // Kullanıcıyı aktif/pasif yap (admin ve super admin)
 router.put(
   "/users/:userId/status",
-  auth,
+  authenticateToken,
   requireAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -238,7 +238,7 @@ router.put(
 // Üretici onaylama (admin ve super admin)
 router.put(
   "/producers/:producerId/verify",
-  auth,
+  authenticateToken,
   requireAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -268,7 +268,7 @@ router.put(
 // Kullanıcı istatistikleri (admin ve super admin)
 router.get(
   "/stats",
-  auth,
+  authenticateToken,
   requireAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -304,7 +304,7 @@ router.get(
 // Kullanıcı detayı (admin ve super admin)
 router.get(
   "/users/:userId",
-  auth,
+  authenticateToken,
   requireAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -344,7 +344,7 @@ router.get(
 // Kullanıcı silme (sadece super admin)
 router.delete(
   "/users/:userId",
-  auth,
+  authenticateToken,
   requireSuperAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -374,7 +374,7 @@ router.delete(
 // Süper admin için admin oluşturma
 router.post(
   "/create-admin",
-  auth,
+  authenticateToken,
   requireSuperAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -452,7 +452,7 @@ router.post(
 // Süper admin için admin listesi
 router.get(
   "/admins",
-  auth,
+  authenticateToken,
   requireSuperAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -502,7 +502,7 @@ router.get(
 // Süper admin için admin detayı
 router.get(
   "/admins/:adminId",
-  auth,
+  authenticateToken,
   requireSuperAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -527,7 +527,7 @@ router.get(
 // Süper admin için admin güncelleme
 router.put(
   "/admins/:adminId",
-  auth,
+  authenticateToken,
   requireSuperAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -560,7 +560,7 @@ router.put(
 // Süper admin için admin şifre değiştirme
 router.put(
   "/admins/:adminId/password",
-  auth,
+  authenticateToken,
   requireSuperAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -598,7 +598,7 @@ router.put(
 // Süper admin için admin silme
 router.delete(
   "/admins/:adminId",
-  auth,
+  authenticateToken,
   requireSuperAdmin,
   async (req: Request, res: Response) => {
     try {
@@ -620,6 +620,61 @@ router.delete(
       });
     } catch (error: unknown) {
       res.status(500).json({ message: "Sunucu hatası", error: String(error) });
+    }
+  }
+);
+
+// İstatistik endpoint'i
+router.get(
+  "/stats/overview",
+  authenticateToken,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      // Toplam kullanıcı sayısı
+      const totalUsers = await User.countDocuments();
+
+      // Toplam üretici sayısı
+      const totalProducers = await User.countDocuments({ role: "producer" });
+
+      // Toplam admin sayısı
+      const totalAdmins = await User.countDocuments({
+        role: { $in: ["admin", "superadmin"] },
+      });
+
+      // Bu ay yeni kullanıcı sayısı
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const newUsersThisMonth = await User.countDocuments({
+        createdAt: { $gte: startOfMonth },
+      });
+
+      // Aktif kullanıcı sayısı (son 30 günde giriş yapan)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const activeUsers = await User.countDocuments({
+        lastLoginAt: { $gte: thirtyDaysAgo },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          totalUsers,
+          totalProducers,
+          totalAdmins,
+          newUsersThisMonth,
+          activeUsers,
+        },
+      });
+    } catch (error: unknown) {
+      res.status(500).json({
+        success: false,
+        message: "Sunucu hatası",
+        error: String(error),
+      });
     }
   }
 );

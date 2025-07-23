@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
-import { User, UserRole } from "../models/User";
-import { Producer } from "../models/Producer";
-import { auth, generateToken } from "../middleware/auth";
+import { User, UserRole } from "../models/User.model";
+import { Producer } from "../models/Producer.model";
+import { authenticateToken, generateToken } from "../middleware/auth";
 
 const router = Router();
 
@@ -181,6 +181,10 @@ router.post("/login", async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Geçersiz email veya şifre" });
     }
 
+    // Update last login time
+    user.lastLoginAt = new Date();
+    await user.save();
+
     // Generate token
     const token = generateToken(user._id.toString());
 
@@ -315,7 +319,7 @@ router.post("/login/admin", async (req: Request, res: Response) => {
 });
 
 // Get current user with producer data if applicable
-router.get("/me", auth, async (req: any, res: Response) => {
+router.get("/me", authenticateToken, async (req: any, res: Response) => {
   try {
     const user = await User.findById(req.user._id).select("-password");
 
@@ -343,56 +347,64 @@ router.get("/me", auth, async (req: any, res: Response) => {
 });
 
 // Update profile image
-router.put("/profile-image", auth, async (req: any, res: Response) => {
-  try {
-    const { profileImage } = req.body;
+router.put(
+  "/profile-image",
+  authenticateToken,
+  async (req: any, res: Response) => {
+    try {
+      const { profileImage } = req.body;
 
-    const user = await User.findByIdAndUpdate(
-      req.user._id,
-      { profileImage },
-      { new: true }
-    ).select("-password");
+      const user = await User.findByIdAndUpdate(
+        req.user._id,
+        { profileImage },
+        { new: true }
+      ).select("-password");
 
-    res.json({
-      message: "Profil resmi güncellendi",
-      user,
-    });
-  } catch (error: unknown) {
-    res.status(500).json({ message: "Sunucu hatası", error: String(error) });
+      res.json({
+        message: "Profil resmi güncellendi",
+        user,
+      });
+    } catch (error: unknown) {
+      res.status(500).json({ message: "Sunucu hatası", error: String(error) });
+    }
   }
-});
+);
 
 // Update producer profile
-router.put("/producer-profile", auth, async (req: any, res: Response) => {
-  try {
-    const { phoneNumber } = req.body;
+router.put(
+  "/producer-profile",
+  authenticateToken,
+  async (req: any, res: Response) => {
+    try {
+      const { phoneNumber } = req.body;
 
-    // Check if user is producer
-    if (req.user.role !== "producer") {
-      return res.status(403).json({
-        message: "Bu işlem sadece üreticiler için geçerlidir",
+      // Check if user is producer
+      if (req.user.role !== "producer") {
+        return res.status(403).json({
+          message: "Bu işlem sadece üreticiler için geçerlidir",
+        });
+      }
+
+      const producer = await Producer.findOneAndUpdate(
+        { user: req.user._id },
+        { phoneNumber },
+        { new: true }
+      );
+
+      if (!producer) {
+        return res.status(404).json({
+          message: "Üretici profili bulunamadı",
+        });
+      }
+
+      res.json({
+        message: "Üretici profili güncellendi",
+        producer,
       });
+    } catch (error: unknown) {
+      res.status(500).json({ message: "Sunucu hatası", error: String(error) });
     }
-
-    const producer = await Producer.findOneAndUpdate(
-      { user: req.user._id },
-      { phoneNumber },
-      { new: true }
-    );
-
-    if (!producer) {
-      return res.status(404).json({
-        message: "Üretici profili bulunamadı",
-      });
-    }
-
-    res.json({
-      message: "Üretici profili güncellendi",
-      producer,
-    });
-  } catch (error: unknown) {
-    res.status(500).json({ message: "Sunucu hatası", error: String(error) });
   }
-});
+);
 
 export default router;

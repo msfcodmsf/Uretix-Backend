@@ -14,6 +14,7 @@ export interface IUser extends Document {
   role: UserRole;
   acceptClarificationText: boolean;
   acceptElectronicMessage: boolean;
+  lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -66,6 +67,9 @@ const userSchema = new Schema<IUser>(
     acceptElectronicMessage: {
       type: Boolean,
       required: true,
+    },
+    lastLoginAt: {
+      type: Date,
     },
   },
   {

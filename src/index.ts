@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import authRoutes from "./routes/auth";
 import uploadRoutes from "./routes/upload";
 import adminRoutes from "./routes/admin";
+import producerRoutes from "./routes/producer";
 import s3Client from "./config/s3";
 import { ListBucketsCommand } from "@aws-sdk/client-s3";
 
@@ -71,6 +72,7 @@ app.get("/s3-test", async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/producer", producerRoutes);
 
 // Start server
 app.listen(PORT, () => {

@@ -1,5 +1,5 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
-import { IUser } from "./User";
+import { IUser } from "./User.model";
 
 export interface IProducer extends Document {
   _id: string;
@@ -7,6 +7,8 @@ export interface IProducer extends Document {
   companyName: string;
   taxIdNumber: string;
   phoneNumber?: string;
+  gender?: string;
+  backupPhone?: string;
   isVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -34,6 +36,16 @@ const producerSchema = new Schema<IProducer>(
       maxlength: 20,
     },
     phoneNumber: {
+      type: String,
+      trim: true,
+      maxlength: 20,
+    },
+    gender: {
+      type: String,
+      trim: true,
+      enum: ["male", "female", "other"],
+    },
+    backupPhone: {
       type: String,
       trim: true,
       maxlength: 20,
