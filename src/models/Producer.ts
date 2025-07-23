@@ -48,28 +48,16 @@ const producerSchema = new Schema<IProducer>(
   }
 );
 
-// Tax ID number validation (Turkish tax number format)
+// Tax ID number validation (simplified)
 producerSchema.path("taxIdNumber").validate(function (value: string) {
   if (!value) return false;
 
-  // Turkish tax number should be 10 digits
+  // Just check if it's 10 digits for now
   if (!/^\d{10}$/.test(value)) {
     return false;
   }
 
-  // Basic validation for Turkish tax number
-  const digits = value.split("").map(Number);
-  let sum = 0;
-
-  for (let i = 0; i < 9; i++) {
-    let temp = (digits[i] + (10 - i)) % 10;
-    if (temp === 9) temp = 0;
-    sum += temp;
-  }
-
-  const lastDigit = sum % 10 === 0 ? 0 : 10 - (sum % 10);
-
-  return lastDigit === digits[9];
-}, "Geçersiz vergi kimlik numarası");
+  return true;
+}, "Vergi kimlik numarası 10 haneli olmalıdır");
 
 export const Producer = mongoose.model<IProducer>("Producer", producerSchema);
