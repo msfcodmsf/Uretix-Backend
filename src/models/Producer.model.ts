@@ -1,8 +1,9 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 import { IUser } from "./User.model";
 
-export interface IProducer extends Document {
+export interface IProducer {
   _id: string;
+  id: string; // Virtual property for _id
   user: Types.ObjectId;
   companyName: string;
   taxIdNumber: string;
@@ -14,7 +15,7 @@ export interface IProducer extends Document {
   updatedAt: Date;
 }
 
-const producerSchema = new Schema<IProducer>(
+const producerSchema = new Schema<IProducer & Document>(
   {
     user: {
       type: Schema.Types.ObjectId,
@@ -72,4 +73,7 @@ producerSchema.path("taxIdNumber").validate(function (value: string) {
   return true;
 }, "Vergi kimlik numarası 10 haneli olmalıdır");
 
-export const Producer = mongoose.model<IProducer>("Producer", producerSchema);
+export const Producer = mongoose.model<IProducer & Document>(
+  "Producer",
+  producerSchema
+);

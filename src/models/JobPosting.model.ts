@@ -1,33 +1,28 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 
-export interface IJobPosting extends Document {
+export interface IJobPosting {
   _id: string;
+  id: string; // Virtual property for _id
   producer: Types.ObjectId;
   title: string;
   description: string;
   requirements: string[];
   responsibilities: string[];
   location: string;
+  type: string;
   salary: {
     min: number;
     max: number;
     currency: string;
-    period: string;
   };
-  jobType: string;
-  experienceLevel: string;
-  educationLevel: string;
-  skills: string[];
   benefits: string[];
   isActive: boolean;
-  isUrgent: boolean;
   applications: Types.ObjectId[];
-  totalApplications: number;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const jobPostingSchema = new Schema<IJobPosting>(
+const jobPostingSchema = new Schema<IJobPosting & Document>(
   {
     producer: {
       type: Schema.Types.ObjectId,
@@ -38,7 +33,7 @@ const jobPostingSchema = new Schema<IJobPosting>(
       type: String,
       required: true,
       trim: true,
-      maxlength: 200,
+      maxlength: 100,
     },
     description: {
       type: String,
@@ -62,6 +57,11 @@ const jobPostingSchema = new Schema<IJobPosting>(
       required: true,
       trim: true,
     },
+    type: {
+      type: String,
+      required: true,
+      enum: ["tam zamanlı", "yarı zamanlı", "uzaktan", "staj"],
+    },
     salary: {
       min: {
         type: Number,
@@ -78,41 +78,7 @@ const jobPostingSchema = new Schema<IJobPosting>(
         default: "TL",
         enum: ["TL", "USD", "EUR"],
       },
-      period: {
-        type: String,
-        default: "aylık",
-        enum: ["saatlik", "günlük", "haftalık", "aylık", "yıllık"],
-      },
     },
-    jobType: {
-      type: String,
-      required: true,
-      enum: ["tam zamanlı", "yarı zamanlı", "sözleşmeli", "staj", "freelance"],
-    },
-    experienceLevel: {
-      type: String,
-      required: true,
-      enum: ["deneyimsiz", "1-3 yıl", "3-5 yıl", "5-10 yıl", "10+ yıl"],
-    },
-    educationLevel: {
-      type: String,
-      required: true,
-      enum: [
-        "ilkokul",
-        "ortaokul",
-        "lise",
-        "önlisans",
-        "lisans",
-        "yükseklisans",
-        "doktora",
-      ],
-    },
-    skills: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
     benefits: [
       {
         type: String,
@@ -123,27 +89,19 @@ const jobPostingSchema = new Schema<IJobPosting>(
       type: Boolean,
       default: true,
     },
-    isUrgent: {
-      type: Boolean,
-      default: false,
-    },
     applications: [
       {
         type: Schema.Types.ObjectId,
         ref: "JobApplication",
       },
     ],
-    totalApplications: {
-      type: Number,
-      default: 0,
-    },
   },
   {
     timestamps: true,
   }
 );
 
-export const JobPosting = mongoose.model<IJobPosting>(
+export const JobPosting = mongoose.model<IJobPosting & Document>(
   "JobPosting",
   jobPostingSchema
 );

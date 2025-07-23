@@ -1,37 +1,31 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 
-export interface IProduct extends Document {
+export interface IProduct {
   _id: string;
+  id: string; // Virtual property for _id
   producer: Types.ObjectId;
   name: string;
   description: string;
-  images: string[];
-  price: number;
-  currency: string;
   category: string;
   subCategory: string;
+  price: number;
+  currency: string;
+  unit: string;
+  minimumOrderQuantity: number;
+  maximumOrderQuantity?: number;
+  availableQuantity: number;
+  images: string[];
+  specifications: Record<string, any>;
   tags: string[];
-  minOrderQuantity: number;
-  stockQuantity: number;
-  productionLocation: string;
-  paymentType: string;
-  colors: string[];
-  variants: {
-    name: string;
-    value: string;
-    price?: number;
-  }[];
   isActive: boolean;
   isFeatured: boolean;
   rating: number;
   totalRatings: number;
-  totalOrders: number;
-  totalFavorites: number;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const productSchema = new Schema<IProduct>(
+const productSchema = new Schema<IProduct & Document>(
   {
     producer: {
       type: Schema.Types.ObjectId,
@@ -42,19 +36,23 @@ const productSchema = new Schema<IProduct>(
       type: String,
       required: true,
       trim: true,
-      maxlength: 200,
+      maxlength: 100,
     },
     description: {
       type: String,
       required: true,
       maxlength: 2000,
     },
-    images: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
+    category: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    subCategory: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     price: {
       type: Number,
       required: true,
@@ -65,62 +63,39 @@ const productSchema = new Schema<IProduct>(
       default: "TL",
       enum: ["TL", "USD", "EUR"],
     },
-    category: {
+    unit: {
       type: String,
       required: true,
       trim: true,
     },
-    subCategory: {
-      type: String,
-      trim: true,
+    minimumOrderQuantity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    maximumOrderQuantity: {
+      type: Number,
+      min: 1,
+    },
+    availableQuantity: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    images: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    specifications: {
+      type: Schema.Types.Mixed,
+      default: {},
     },
     tags: [
       {
         type: String,
         trim: true,
-      },
-    ],
-    minOrderQuantity: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
-    stockQuantity: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    productionLocation: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    paymentType: {
-      type: String,
-      trim: true,
-    },
-    colors: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
-    variants: [
-      {
-        name: {
-          type: String,
-          required: true,
-          trim: true,
-        },
-        value: {
-          type: String,
-          required: true,
-          trim: true,
-        },
-        price: {
-          type: Number,
-          min: 0,
-        },
       },
     ],
     isActive: {
@@ -140,14 +115,7 @@ const productSchema = new Schema<IProduct>(
     totalRatings: {
       type: Number,
       default: 0,
-    },
-    totalOrders: {
-      type: Number,
-      default: 0,
-    },
-    totalFavorites: {
-      type: Number,
-      default: 0,
+      min: 0,
     },
   },
   {
@@ -155,4 +123,16 @@ const productSchema = new Schema<IProduct>(
   }
 );
 
-export const Product = mongoose.model<IProduct>("Product", productSchema);
+// Index for search
+productSchema.index({
+  name: "text",
+  description: "text",
+  category: "text",
+  subCategory: "text",
+  tags: "text",
+});
+
+export const Product = mongoose.model<IProduct & Document>(
+  "Product",
+  productSchema
+);

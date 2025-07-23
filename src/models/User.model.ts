@@ -3,8 +3,9 @@ import bcrypt from "bcryptjs";
 
 export type UserRole = "user" | "producer" | "admin" | "superadmin";
 
-export interface IUser extends Document {
+export interface IUser {
   _id: string;
+  id: string; // Virtual property for _id
   email: string;
   password: string;
   firstName: string;
@@ -20,7 +21,7 @@ export interface IUser extends Document {
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
-const userSchema = new Schema<IUser>(
+const userSchema = new Schema<IUser & Document>(
   {
     email: {
       type: String,
@@ -97,4 +98,4 @@ userSchema.methods.comparePassword = async function (
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-export const User = mongoose.model<IUser>("User", userSchema);
+export const User = mongoose.model<IUser & Document>("User", userSchema);

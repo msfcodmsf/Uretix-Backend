@@ -1,7 +1,8 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 
-export interface IJobApplication extends Document {
+export interface IJobApplication {
   _id: string;
+  id: string; // Virtual property for _id
   jobPosting: Types.ObjectId;
   applicant: Types.ObjectId;
   coverLetter: string;
@@ -9,16 +10,12 @@ export interface IJobApplication extends Document {
   status: string;
   appliedAt: Date;
   reviewedAt?: Date;
-  reviewedBy?: Types.ObjectId;
   notes?: string;
-  interviewDate?: Date;
-  interviewLocation?: string;
-  interviewType?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const jobApplicationSchema = new Schema<IJobApplication>(
+const jobApplicationSchema = new Schema<IJobApplication & Document>(
   {
     jobPosting: {
       type: Schema.Types.ObjectId,
@@ -52,24 +49,9 @@ const jobApplicationSchema = new Schema<IJobApplication>(
     reviewedAt: {
       type: Date,
     },
-    reviewedBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-    },
     notes: {
       type: String,
-      maxlength: 1000,
-    },
-    interviewDate: {
-      type: Date,
-    },
-    interviewLocation: {
-      type: String,
-      trim: true,
-    },
-    interviewType: {
-      type: String,
-      enum: ["yüz yüze", "online", "telefon"],
+      maxlength: 500,
     },
   },
   {
@@ -77,7 +59,7 @@ const jobApplicationSchema = new Schema<IJobApplication>(
   }
 );
 
-export const JobApplication = mongoose.model<IJobApplication>(
+export const JobApplication = mongoose.model<IJobApplication & Document>(
   "JobApplication",
   jobApplicationSchema
 );

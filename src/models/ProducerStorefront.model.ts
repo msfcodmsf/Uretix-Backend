@@ -1,7 +1,8 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 
-export interface IProducerStorefront extends Document {
+export interface IProducerStorefront {
   _id: string;
+  id: string; // Virtual property for _id
   producer: Types.ObjectId;
   companyName: string;
   companyDescription: string;
@@ -37,7 +38,7 @@ export interface IProducerStorefront extends Document {
   updatedAt: Date;
 }
 
-const producerStorefrontSchema = new Schema<IProducerStorefront>(
+const producerStorefrontSchema = new Schema<IProducerStorefront & Document>(
   {
     producer: {
       type: Schema.Types.ObjectId,
@@ -196,7 +197,6 @@ const producerStorefrontSchema = new Schema<IProducerStorefront>(
   }
 );
 
-export const ProducerStorefront = mongoose.model<IProducerStorefront>(
-  "ProducerStorefront",
-  producerStorefrontSchema
-);
+export const ProducerStorefront = mongoose.model<
+  IProducerStorefront & Document
+>("ProducerStorefront", producerStorefrontSchema);

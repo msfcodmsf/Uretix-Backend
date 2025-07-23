@@ -1,55 +1,55 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 
-export interface IMaterialRequest extends Document {
+export interface IMaterialRequest {
   _id: string;
-  requester: Types.ObjectId; // Talep eden üretici
-  targetProducer: Types.ObjectId; // Hedef üretici (malzemeyi üreten)
+  id: string; // Virtual property for _id
+  requester: Types.ObjectId;
   title: string;
   description: string;
-  materialName: string;
+  category: string;
+  subCategory: string;
   quantity: number;
   unit: string;
-  specifications: string;
-  urgency: string;
+  specifications: Record<string, any>;
+  deliveryLocation: string;
+  deliveryDate: Date;
   budget: {
     min: number;
     max: number;
     currency: string;
   };
-  deliveryLocation: string;
-  deliveryDate: Date;
+  isUrgent: boolean;
   status: string;
   offers: Types.ObjectId[];
-  totalOffers: number;
-  isActive: boolean;
+  selectedOffer?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const materialRequestSchema = new Schema<IMaterialRequest>(
+const materialRequestSchema = new Schema<IMaterialRequest & Document>(
   {
     requester: {
       type: Schema.Types.ObjectId,
-      ref: "Producer",
-      required: true,
-    },
-    targetProducer: {
-      type: Schema.Types.ObjectId,
-      ref: "Producer",
+      ref: "User",
       required: true,
     },
     title: {
       type: String,
       required: true,
       trim: true,
-      maxlength: 200,
+      maxlength: 100,
     },
     description: {
       type: String,
       required: true,
       maxlength: 2000,
     },
-    materialName: {
+    category: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    subCategory: {
       type: String,
       required: true,
       trim: true,
@@ -65,13 +65,17 @@ const materialRequestSchema = new Schema<IMaterialRequest>(
       trim: true,
     },
     specifications: {
-      type: String,
-      maxlength: 1000,
+      type: Schema.Types.Mixed,
+      default: {},
     },
-    urgency: {
+    deliveryLocation: {
       type: String,
-      default: "normal",
-      enum: ["düşük", "normal", "yüksek", "acil"],
+      required: true,
+      trim: true,
+    },
+    deliveryDate: {
+      type: Date,
+      required: true,
     },
     budget: {
       min: {
@@ -90,19 +94,14 @@ const materialRequestSchema = new Schema<IMaterialRequest>(
         enum: ["TL", "USD", "EUR"],
       },
     },
-    deliveryLocation: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    deliveryDate: {
-      type: Date,
-      required: true,
+    isUrgent: {
+      type: Boolean,
+      default: false,
     },
     status: {
       type: String,
-      default: "bekleyen",
-      enum: ["bekleyen", "teklifler_alındı", "seçildi", "tamamlandı", "iptal"],
+      default: "açık",
+      enum: ["açık", "teklifler alınıyor", "seçildi", "tamamlandı", "iptal"],
     },
     offers: [
       {
@@ -110,13 +109,9 @@ const materialRequestSchema = new Schema<IMaterialRequest>(
         ref: "MaterialOffer",
       },
     ],
-    totalOffers: {
-      type: Number,
-      default: 0,
-    },
-    isActive: {
-      type: Boolean,
-      default: true,
+    selectedOffer: {
+      type: Schema.Types.ObjectId,
+      ref: "MaterialOffer",
     },
   },
   {
@@ -124,7 +119,7 @@ const materialRequestSchema = new Schema<IMaterialRequest>(
   }
 );
 
-export const MaterialRequest = mongoose.model<IMaterialRequest>(
+export const MaterialRequest = mongoose.model<IMaterialRequest & Document>(
   "MaterialRequest",
   materialRequestSchema
 );

@@ -16,5 +16,4 @@ export type { IProduct } from "./Product.model";
 export type { IJobPosting } from "./JobPosting.model";
 export type { IJobApplication } from "./JobApplication.model";
 export type { IMaterialRequest } from "./MaterialRequest.model";
-export type { IMaterialOffer } from "./MaterialOffer.model";
 export type { IOrder } from "./Order.model";
