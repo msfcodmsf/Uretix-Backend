@@ -15,8 +15,41 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// CORS Configuration
+const getCorsOrigins = () => {
+  const origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://uretix.vercel.app",
+    "https://uretix-frontend.vercel.app",
+    process.env.FRONTEND_URL,
+    process.env.FRONTEND_USER,
+  ].filter((url): url is string => Boolean(url));
+
+  // Production ortamında sadece HTTPS origin'lere izin ver
+  if (process.env.NODE_ENV === "production") {
+    return origins.filter((origin) => origin.startsWith("https://"));
+  }
+
+  return origins;
+};
+
+const corsOptions = {
+  origin: getCorsOrigins(),
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+};
+
+console.log("CORS Origins:", corsOptions.origin);
+console.log("Environment Variables:");
+console.log("FRONTEND_URL:", process.env.FRONTEND_URL);
+console.log("FRONTEND_USER:", process.env.FRONTEND_USER);
+console.log("NODE_ENV:", process.env.NODE_ENV);
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
