@@ -4,6 +4,9 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth";
 import uploadRoutes from "./routes/upload";
+import adminRoutes from "./routes/admin";
+import s3Client from "./config/s3";
+import { ListBucketsCommand } from "@aws-sdk/client-s3";
 
 // Environment variables
 dotenv.config();
@@ -43,9 +46,31 @@ app.get("/health", (req, res) => {
   });
 });
 
+// AWS S3 bağlantı testi endpoint'i (Added for testing)
+app.get("/s3-test", async (req, res) => {
+  try {
+    const command = new ListBucketsCommand({});
+    const result = await s3Client.send(command);
+    res.json({
+      success: true,
+      message: "AWS S3 bağlantısı başarılı!",
+      buckets: result.Buckets?.map((b) => b.Name) || [],
+      region: process.env.AWS_REGION,
+      bucketName: process.env.AWS_S3_BUCKET_NAME,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "AWS S3 bağlantı hatası",
+      error: String(error),
+    });
+  }
+});
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Start server
 app.listen(PORT, () => {

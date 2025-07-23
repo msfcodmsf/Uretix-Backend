@@ -1,15 +1,19 @@
 import mongoose, { Document, Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 
+export type UserRole = "user" | "producer" | "admin" | "superadmin";
+
 export interface IUser extends Document {
   _id: string;
-  username: string;
   email: string;
   password: string;
-  firstName?: string;
-  lastName?: string;
+  firstName: string;
+  lastName: string;
   profileImage?: string;
   isActive: boolean;
+  role: UserRole;
+  acceptClarificationText: boolean;
+  acceptElectronicMessage: boolean;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -17,14 +21,6 @@ export interface IUser extends Document {
 
 const userSchema = new Schema<IUser>(
   {
-    username: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-      minlength: 3,
-      maxlength: 30,
-    },
     email: {
       type: String,
       required: true,
@@ -39,11 +35,13 @@ const userSchema = new Schema<IUser>(
     },
     firstName: {
       type: String,
+      required: true,
       trim: true,
       maxlength: 50,
     },
     lastName: {
       type: String,
+      required: true,
       trim: true,
       maxlength: 50,
     },
@@ -54,6 +52,20 @@ const userSchema = new Schema<IUser>(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    role: {
+      type: String,
+      enum: ["user", "producer", "admin", "superadmin"],
+      default: "user",
+      required: true,
+    },
+    acceptClarificationText: {
+      type: Boolean,
+      required: true,
+    },
+    acceptElectronicMessage: {
+      type: Boolean,
+      required: true,
     },
   },
   {

@@ -7,7 +7,9 @@
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "build": "tsc",
-    "watch": "tsc --watch"
+    "watch": "tsc --watch",
+    "create-admin": "ts-node src/scripts/createSuperAdmin.ts",
+    "fix-db": "ts-node src/scripts/fixDatabase.ts"
   },
   "keywords": [],
   "author": "",
