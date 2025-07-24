@@ -1,6 +1,8 @@
 import { Router, Request, Response } from "express";
 import { User, UserRole } from "../models/User.model";
 import { Producer } from "../models/Producer.model";
+import { ProductionCategory } from "../models/ProductionCategory.model";
+import { TaxOffice } from "../models/TaxOffice.model";
 import { authenticateToken } from "../middleware/auth";
 import { requireAdmin, requireSuperAdmin } from "../middleware/roleAuth";
 
@@ -13,56 +15,20 @@ router.get(
   requireAdmin,
   async (req: Request, res: Response) => {
     try {
-      const {
-        page = 1,
-        limit = 10,
-        role,
-        isActive,
-        search,
-        sortBy = "createdAt",
-        sortOrder = "desc",
-      } = req.query;
-
-      // Filtreleme
-      const filter: any = {};
-
-      if (role) filter.role = role;
-      if (isActive !== undefined) filter.isActive = isActive === "true";
-
-      if (search) {
-        filter.$or = [
-          { firstName: { $regex: search, $options: "i" } },
-          { lastName: { $regex: search, $options: "i" } },
-          { email: { $regex: search, $options: "i" } },
-        ];
-      }
-
-      // Sayfalama
-      const skip = (Number(page) - 1) * Number(limit);
-
-      // Sıralama
-      const sort: any = {};
-      sort[sortBy as string] = sortOrder === "desc" ? -1 : 1;
-
-      const users = await User.find(filter)
+      const users = await User.find()
         .select("-password")
-        .sort(sort)
-        .skip(skip)
-        .limit(Number(limit));
-
-      const total = await User.countDocuments(filter);
+        .sort({ createdAt: -1 });
 
       res.json({
-        users,
-        pagination: {
-          page: Number(page),
-          limit: Number(limit),
-          total,
-          pages: Math.ceil(total / Number(limit)),
-        },
+        success: true,
+        data: users,
       });
     } catch (error: unknown) {
-      res.status(500).json({ message: "Sunucu hatası", error: String(error) });
+      res.status(500).json({
+        success: false,
+        message: "Sunucu hatası",
+        error: String(error),
+      });
     }
   }
 );
@@ -626,7 +592,7 @@ router.delete(
 
 // İstatistik endpoint'i
 router.get(
-  "/stats/overview",
+  "/statistics",
   authenticateToken,
   requireAdmin,
   async (req: Request, res: Response) => {
@@ -637,26 +603,14 @@ router.get(
       // Toplam üretici sayısı
       const totalProducers = await User.countDocuments({ role: "producer" });
 
-      // Toplam admin sayısı
-      const totalAdmins = await User.countDocuments({
-        role: { $in: ["admin", "superadmin"] },
+      // Toplam kategori sayısı
+      const totalCategories = await ProductionCategory.countDocuments({
+        isActive: true,
       });
 
-      // Bu ay yeni kullanıcı sayısı
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-
-      const newUsersThisMonth = await User.countDocuments({
-        createdAt: { $gte: startOfMonth },
-      });
-
-      // Aktif kullanıcı sayısı (son 30 günde giriş yapan)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const activeUsers = await User.countDocuments({
-        lastLoginAt: { $gte: thirtyDaysAgo },
+      // Toplam vergi dairesi sayısı
+      const totalTaxOffices = await TaxOffice.countDocuments({
+        isActive: true,
       });
 
       res.json({
@@ -664,10 +618,93 @@ router.get(
         data: {
           totalUsers,
           totalProducers,
-          totalAdmins,
-          newUsersThisMonth,
-          activeUsers,
+          totalCategories,
+          totalTaxOffices,
         },
+      });
+    } catch (error: unknown) {
+      res.status(500).json({
+        success: false,
+        message: "Sunucu hatası",
+        error: String(error),
+      });
+    }
+  }
+);
+
+// Kullanıcı silme
+router.delete(
+  "/users/:userId",
+  authenticateToken,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "Kullanıcı bulunamadı",
+        });
+      }
+
+      // Super admin'lerin silinmesini engelle
+      if (user.role === "superadmin") {
+        return res.status(403).json({
+          success: false,
+          message: "Super admin kullanıcıları silinemez",
+        });
+      }
+
+      await User.findByIdAndDelete(userId);
+
+      res.json({
+        success: true,
+        message: "Kullanıcı başarıyla silindi",
+      });
+    } catch (error: unknown) {
+      res.status(500).json({
+        success: false,
+        message: "Sunucu hatası",
+        error: String(error),
+      });
+    }
+  }
+);
+
+// Kullanıcı durumunu değiştirme
+router.put(
+  "/users/:userId/toggle-status",
+  authenticateToken,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "Kullanıcı bulunamadı",
+        });
+      }
+
+      // Super admin'lerin durumunu değiştirmeyi engelle
+      if (user.role === "superadmin") {
+        return res.status(403).json({
+          success: false,
+          message: "Super admin kullanıcılarının durumu değiştirilemez",
+        });
+      }
+
+      user.isActive = !user.isActive;
+      await user.save();
+
+      res.json({
+        success: true,
+        message: `Kullanıcı ${user.isActive ? "aktif" : "pasif"} yapıldı`,
+        data: { isActive: user.isActive },
       });
     } catch (error: unknown) {
       res.status(500).json({
