@@ -269,7 +269,7 @@ router.post("/login/superadmin", async (req: Request, res: Response) => {
   }
 });
 
-// Admin girişi
+// Admin ve Superadmin girişi
 router.post("/login/admin", async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
@@ -283,7 +283,8 @@ router.post("/login/admin", async (req: Request, res: Response) => {
     // Check if user is admin or super admin
     if (!["admin", "superadmin"].includes(user.role)) {
       return res.status(403).json({
-        message: "Bu endpoint sadece adminler için geçerlidir",
+        message:
+          "Bu panele sadece admin ve superadmin hesapları ile giriş yapabilirsiniz",
       });
     }
 
@@ -298,23 +299,37 @@ router.post("/login/admin", async (req: Request, res: Response) => {
       return res.status(403).json({ message: "Hesabınız pasif durumda" });
     }
 
+    // Update last login time
+    user.lastLoginAt = new Date();
+    await user.save();
+
     // Generate token
     const token = generateToken(user._id.toString());
 
     res.json({
-      message: "Admin girişi başarılı",
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        isActive: user.isActive,
+      success: true,
+      message:
+        user.role === "superadmin"
+          ? "Superadmin girişi başarılı"
+          : "Admin girişi başarılı",
+      data: {
+        token,
+        user: {
+          id: user._id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          isActive: user.isActive,
+        },
       },
     });
   } catch (error: unknown) {
-    res.status(500).json({ message: "Sunucu hatası", error: String(error) });
+    res.status(500).json({
+      success: false,
+      message: "Sunucu hatası",
+      error: String(error),
+    });
   }
 });
 
