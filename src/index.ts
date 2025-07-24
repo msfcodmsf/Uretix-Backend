@@ -19,12 +19,8 @@ const PORT = process.env.PORT || 5000;
 // CORS Configuration
 const getCorsOrigins = () => {
   const origins = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "https://uretix.vercel.app",
-    "https://uretix-frontend.vercel.app",
-    process.env.FRONTEND_URL,
     process.env.FRONTEND_USER,
+    process.env.FRONTEND_ADMIN,
   ].filter((url): url is string => Boolean(url));
 
   // Production ortamında sadece HTTPS origin'lere izin ver
