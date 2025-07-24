@@ -127,6 +127,7 @@ export class ProducerService {
           email: user.email || "",
           profileImage: user.profileImage || producer.profileImage || "",
           companyName: producer.companyName || "",
+          taxIdNumber: producer.taxIdNumber || "",
           phoneNumber: producer.phoneNumber || "",
           gender: producer.gender || "",
           backupPhone: producer.backupPhone || "",
@@ -169,6 +170,7 @@ export class ProducerService {
       if (data.gender) producer.gender = data.gender;
       if (data.backupPhone) producer.backupPhone = data.backupPhone;
       if (data.profileImage) producer.profileImage = data.profileImage;
+      if (data.taxNumber) producer.taxIdNumber = data.taxNumber;
 
       await producer.save();
 
@@ -281,6 +283,7 @@ export class ProducerService {
       if (data.gender) producer.gender = data.gender;
       if (data.backupPhone) producer.backupPhone = data.backupPhone;
       if (data.profileImage) producer.profileImage = data.profileImage;
+      if (data.taxNumber) producer.taxIdNumber = data.taxNumber;
 
       await producer.save();
 
