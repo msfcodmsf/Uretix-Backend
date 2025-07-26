@@ -1,19 +1,32 @@
-export { User } from "./User.model";
-export { Producer } from "./Producer.model";
-export { ProducerStorefront } from "./ProducerStorefront.model";
-export { Product } from "./Product.model";
-export { JobPosting } from "./JobPosting.model";
-export { JobApplication } from "./JobApplication.model";
-export { MaterialRequest } from "./MaterialRequest.model";
-export { MaterialOffer } from "./MaterialOffer.model";
-export { Order } from "./Order.model";
+// User Model
+export { User, IUser } from "./User.model";
 
-// Interface exports
-export type { IUser } from "./User.model";
-export type { IProducer } from "./Producer.model";
-export type { IProducerStorefront } from "./ProducerStorefront.model";
-export type { IProduct } from "./Product.model";
-export type { IJobPosting } from "./JobPosting.model";
-export type { IJobApplication } from "./JobApplication.model";
-export type { IMaterialRequest } from "./MaterialRequest.model";
-export type { IOrder } from "./Order.model";
+// Producer Models
+export { Producer, IProducer } from "./Producer.model";
+export {
+  ProducerStorefront,
+  IProducerStorefront,
+} from "./ProducerStorefront.model";
+
+// Product Models
+export { Product, IProduct } from "./Product.model";
+
+// Order Models
+export { Order, IOrder } from "./Order.model";
+
+// Job Models
+export { JobPosting, IJobPosting } from "./JobPosting.model";
+export { JobApplication, IJobApplication } from "./JobApplication.model";
+
+// Material Models
+export { MaterialRequest, IMaterialRequest } from "./MaterialRequest.model";
+export { MaterialOffer } from "./MaterialOffer.model";
+
+// Category Models
+export {
+  ProductionCategory,
+  IProductionCategory,
+} from "./ProductionCategory.model";
+
+// Tax Office Model
+export { TaxOffice, ITaxOffice } from "./TaxOffice.model";

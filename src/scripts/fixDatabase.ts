@@ -3,63 +3,46 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const fixDatabase = async () => {
+const MONGODB_URI = process.env.MONGO_DB_URL || "";
+
+async function fixDatabase() {
   try {
-    // MongoDB bağlantısı
-    const MONGODB_URI =
-      process.env.MONGO_DB_URL || "mongodb://localhost:27017/uretix";
+    console.log("MongoDB'ye bağlanılıyor...");
     await mongoose.connect(MONGODB_URI);
     console.log("MongoDB bağlantısı başarılı");
 
-    // Users collection'ını al
     const db = mongoose.connection.db;
     if (!db) {
       throw new Error("Veritabanı bağlantısı kurulamadı");
     }
 
-    const usersCollection = db.collection("users");
+    // ProductionCategory collection'ındaki index'leri listele
+    console.log("Mevcut index'ler:");
+    const indexes = await db.collection("productioncategories").indexes();
+    console.log(indexes);
 
-    // Mevcut index'leri listele
-    const indexes = await usersCollection.indexes();
-    console.log(
-      "Mevcut index'ler:",
-      indexes.map((idx) => idx.name)
-    );
-
-    // Username index'ini bul ve sil
-    const usernameIndex = indexes.find(
-      (idx) => idx.key && idx.key.username !== undefined
-    );
-
-    if (usernameIndex && usernameIndex.name) {
-      console.log("Username index'i bulundu, siliniyor...");
-      await usersCollection.dropIndex(usernameIndex.name);
-      console.log("✅ Username index'i silindi");
-    } else {
-      console.log("Username index'i bulunamadı");
+    // slug_1 index'ini kaldır
+    try {
+      await db.collection("productioncategories").dropIndex("slug_1");
+      console.log("slug_1 index'i başarıyla kaldırıldı");
+    } catch (error) {
+      console.log("slug_1 index'i zaten yok veya kaldırılamadı:", error);
     }
 
-    // Email index'ini kontrol et
-    const emailIndex = indexes.find(
-      (idx) => idx.key && idx.key.email !== undefined
-    );
+    // Yeni index'leri kontrol et
+    console.log("Güncellenmiş index'ler:");
+    const updatedIndexes = await db
+      .collection("productioncategories")
+      .indexes();
+    console.log(updatedIndexes);
 
-    if (!emailIndex) {
-      console.log("Email index'i oluşturuluyor...");
-      await usersCollection.createIndex({ email: 1 }, { unique: true });
-      console.log("✅ Email index'i oluşturuldu");
-    } else {
-      console.log("Email index'i zaten mevcut");
-    }
-
-    console.log("✅ Veritabanı düzeltildi!");
+    console.log("Veritabanı düzeltme işlemi tamamlandı");
   } catch (error) {
-    console.error("❌ Hata:", error);
+    console.error("Veritabanı düzeltme hatası:", error);
   } finally {
     await mongoose.disconnect();
-    console.log("🔌 MongoDB bağlantısı kapatıldı");
+    console.log("MongoDB bağlantısı kapatıldı");
   }
-};
+}
 
-// Script'i çalıştır
 fixDatabase();

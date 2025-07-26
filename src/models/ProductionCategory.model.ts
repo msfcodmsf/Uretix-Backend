@@ -4,10 +4,10 @@ export interface IProductionCategory {
   _id: string;
   id: string; // Virtual property for _id
   name: string;
-  slug: string;
-  description?: string;
+  type: "vitrin" | "hizmet" | "ilgi" | "diger";
+  vitrinCategory?: "uretim" | "kargo";
+  parentCategory?: string; // Ana kategori ID'si (alt kategoriler için)
   isActive: boolean;
-  order: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,45 +19,34 @@ const productionCategorySchema = new Schema<IProductionCategory & Document>(
       required: true,
       trim: true,
       maxlength: 100,
-      unique: true,
     },
-    slug: {
+    type: {
       type: String,
       required: true,
-      trim: true,
-      unique: true,
-      lowercase: true,
+      enum: ["vitrin", "hizmet", "ilgi", "diger"],
+      default: "vitrin",
     },
-    description: {
+    vitrinCategory: {
       type: String,
-      trim: true,
-      maxlength: 500,
+      enum: ["uretim", "kargo"],
+      required: function () {
+        return this.type === "vitrin";
+      },
     },
-    isActive: {
-      type: Boolean,
-      default: true,
+    parentCategory: {
+      type: String,
+      ref: "ProductionCategory",
+      required: function () {
+        return this.type === "hizmet"; // Hizmet kategorileri için parent gerekli
+      },
     },
-    order: {
-      type: Number,
-      default: 0,
-    },
+    isActive: { type: Boolean, default: true },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// Create slug from name before saving
-productionCategorySchema.pre("save", function (next) {
-  if (this.isModified("name")) {
-    this.slug = this.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
-  }
-  next();
-});
+// Compound unique index for name and type
+productionCategorySchema.index({ name: 1, type: 1 }, { unique: true });
 
 export const ProductionCategory = mongoose.model<
   IProductionCategory & Document

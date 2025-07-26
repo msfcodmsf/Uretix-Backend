@@ -1,320 +1,577 @@
-import express, { Request } from "express";
-import multer from "multer";
-import { ProducerService } from "../services/producerService";
+import express, { Request, Response } from "express";
 import { authenticateToken } from "../middleware/auth";
-import { validateProducerRole } from "../middleware/roles";
-import { IUser } from "../models/User.model";
+import { requireProducer } from "../middleware/roleAuth";
+import { uploadSingle, deleteFromS3 } from "../config/s3";
+import multer from "multer";
+import multerS3 from "multer-s3";
+import { S3Client } from "@aws-sdk/client-s3";
+import {
+  ProductionCategory,
+  Producer,
+  ProducerStorefront,
+  User,
+} from "../models";
 
 interface AuthRequest extends Request {
-  user?: IUser;
+  user?: any;
 }
+
+// S3 Client for video uploads
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION || "us-east-1",
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+  },
+});
 
 const router = express.Router();
 
-// Configure multer for video uploads
-const upload = multer({
-  storage: multer.memoryStorage(),
+// Middleware to ensure producer access
+router.use(authenticateToken);
+router.use(requireProducer);
+
+// GET producer profile (vitrinim bilgileri)
+router.get("/my-shop-window", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    // Find producer by user ID
+    const producer = await Producer.findOne({ user: userId }).populate("user");
+
+    if (!producer) {
+      return res.status(404).json({
+        success: false,
+        message: "Producer bulunamadı",
+      });
+    }
+
+    // Find storefront for this producer
+    const storefront = await ProducerStorefront.findOne({
+      producer: producer._id,
+    });
+
+    // Get user details
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Kullanıcı bulunamadı",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        producer: {
+          id: producer._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          profileImage: producer.profileImage,
+          companyName: producer.companyName,
+          taxIdNumber: producer.taxIdNumber,
+          phoneNumber: producer.phoneNumber,
+          gender: producer.gender,
+          backupPhone: producer.backupPhone,
+        },
+        storefront: storefront
+          ? {
+              companyName: storefront.companyName,
+              taxOffice: storefront.taxOffice,
+              taxNumber: storefront.taxNumber,
+              city: storefront.city,
+              district: storefront.district,
+              address: storefront.address,
+              mainProductionCategory: storefront.mainProductionCategory,
+              subProductionCategories: storefront.subProductionCategories,
+              companyDescription: storefront.companyDescription,
+              companyVideo: storefront.companyVideo,
+              deliveryRegions: storefront.deliveryRegions,
+              estimatedDeliveryTime: storefront.estimatedDeliveryTime,
+              shippingMethod: storefront.shippingMethod,
+              nonDeliveryRegions: storefront.nonDeliveryRegions,
+              customProduction: storefront.customProduction,
+              averageProductionTime: storefront.averageProductionTime,
+              sampleDelivery: storefront.sampleDelivery,
+              offerArea: storefront.offerArea,
+              serviceTags: storefront.serviceTags,
+              interestTags: storefront.interestTags,
+            }
+          : null,
+      },
+    });
+  } catch (error) {
+    console.error("Producer profile getirilirken hata:", error);
+    res.status(500).json({
+      success: false,
+      message: "Producer profili getirilemedi",
+    });
+  }
+});
+
+// GET producer personal profile (kişisel bilgiler)
+router.get("/profile", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    // Find producer by user ID
+    const producer = await Producer.findOne({ user: userId }).populate("user");
+
+    if (!producer) {
+      return res.status(404).json({
+        success: false,
+        message: "Producer bulunamadı",
+      });
+    }
+
+    // Get user details
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Kullanıcı bulunamadı",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        producer: {
+          id: producer._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          profileImage: producer.profileImage,
+          companyName: producer.companyName,
+          taxIdNumber: producer.taxIdNumber,
+          phoneNumber: producer.phoneNumber,
+          gender: producer.gender,
+          backupPhone: producer.backupPhone,
+        },
+        storefront: null, // Personal profile doesn't include storefront data
+      },
+    });
+  } catch (error) {
+    console.error("Producer personal profile getirilirken hata:", error);
+    res.status(500).json({
+      success: false,
+      message: "Producer kişisel profili getirilemedi",
+    });
+  }
+});
+
+// PUT update producer profile (vitrinim)
+router.put("/my-shop-window", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const updateData = req.body;
+
+    // Find producer by user ID
+    const producer = await Producer.findOne({ user: userId });
+
+    if (!producer) {
+      return res.status(404).json({
+        success: false,
+        message: "Producer bulunamadı",
+      });
+    }
+
+    // Find or create storefront
+    let storefront = await ProducerStorefront.findOne({
+      producer: producer._id,
+    });
+
+    if (!storefront) {
+      storefront = new ProducerStorefront({
+        producer: producer._id,
+        companyName: updateData.companyName || producer.companyName,
+        companyDescription: updateData.description || "",
+        companyVideo: updateData.videoUrl || "",
+        taxOffice: updateData.taxOffice || "",
+        taxNumber: updateData.taxNumber || producer.taxIdNumber,
+        city: updateData.city || "",
+        district: updateData.district || "",
+        address: updateData.address || "",
+        mainProductionCategory: updateData.mainCategory || "",
+        subProductionCategories: updateData.subCategories || [],
+        serviceTags: updateData.serviceTags || [],
+        interestTags: updateData.interestTags || [],
+        deliveryRegions: updateData.deliveryRegions || [],
+        estimatedDeliveryTime: updateData.estimatedDeliveryTime || "",
+        shippingMethod: updateData.shippingMethod || "",
+        nonDeliveryRegions: updateData.nonDeliveryRegions || [],
+        customProduction: updateData.customProduction || false,
+        averageProductionTime: updateData.averageProductionTime || "",
+        sampleDelivery: updateData.sampleDelivery || false,
+        offerArea: updateData.offerArea || "",
+      });
+    } else {
+      // Update existing storefront
+      Object.assign(storefront, {
+        companyName: updateData.companyName || storefront.companyName,
+        companyDescription:
+          updateData.description || storefront.companyDescription,
+        companyVideo: updateData.videoUrl || storefront.companyVideo,
+        taxOffice: updateData.taxOffice || storefront.taxOffice,
+        taxNumber: updateData.taxNumber || storefront.taxNumber,
+        city: updateData.city || storefront.city,
+        district: updateData.district || storefront.district,
+        address: updateData.address || storefront.address,
+        mainProductionCategory:
+          updateData.mainCategory || storefront.mainProductionCategory,
+        subProductionCategories:
+          updateData.subCategories || storefront.subProductionCategories,
+        serviceTags: updateData.serviceTags || storefront.serviceTags,
+        interestTags: updateData.interestTags || storefront.interestTags,
+        deliveryRegions:
+          updateData.deliveryRegions || storefront.deliveryRegions,
+        estimatedDeliveryTime:
+          updateData.estimatedDeliveryTime || storefront.estimatedDeliveryTime,
+        shippingMethod: updateData.shippingMethod || storefront.shippingMethod,
+        nonDeliveryRegions:
+          updateData.nonDeliveryRegions || storefront.nonDeliveryRegions,
+        customProduction:
+          updateData.customProduction !== undefined
+            ? updateData.customProduction
+            : storefront.customProduction,
+        averageProductionTime:
+          updateData.averageProductionTime || storefront.averageProductionTime,
+        sampleDelivery:
+          updateData.sampleDelivery !== undefined
+            ? updateData.sampleDelivery
+            : storefront.sampleDelivery,
+        offerArea: updateData.offerArea || storefront.offerArea,
+      });
+    }
+
+    await storefront.save();
+
+    res.json({
+      success: true,
+      message: "Vitrin bilgileri başarıyla güncellendi",
+      data: {
+        producer: {
+          id: producer._id,
+          companyName: producer.companyName,
+          taxIdNumber: producer.taxIdNumber,
+        },
+        storefront: {
+          companyName: storefront.companyName,
+          taxOffice: storefront.taxOffice,
+          taxNumber: storefront.taxNumber,
+          city: storefront.city,
+          district: storefront.district,
+          address: storefront.address,
+          mainProductionCategory: storefront.mainProductionCategory,
+          subProductionCategories: storefront.subProductionCategories,
+          companyDescription: storefront.companyDescription,
+          companyVideo: storefront.companyVideo,
+          deliveryRegions: storefront.deliveryRegions,
+          estimatedDeliveryTime: storefront.estimatedDeliveryTime,
+          shippingMethod: storefront.shippingMethod,
+          nonDeliveryRegions: storefront.nonDeliveryRegions,
+          customProduction: storefront.customProduction,
+          averageProductionTime: storefront.averageProductionTime,
+          sampleDelivery: storefront.sampleDelivery,
+          offerArea: storefront.offerArea,
+          serviceTags: storefront.serviceTags,
+          interestTags: storefront.interestTags,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Producer profile güncellenirken hata:", error);
+    res.status(500).json({
+      success: false,
+      message: "Producer profili güncellenemedi",
+    });
+  }
+});
+
+// PUT update producer personal profile (kişisel bilgiler)
+router.put("/profile", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const updateData = req.body;
+
+    // Find producer by user ID
+    const producer = await Producer.findOne({ user: userId });
+
+    if (!producer) {
+      return res.status(404).json({
+        success: false,
+        message: "Producer bulunamadı",
+      });
+    }
+
+    // Update producer data
+    Object.assign(producer, {
+      companyName: updateData.companyName || producer.companyName,
+      taxIdNumber: updateData.taxNumber || producer.taxIdNumber,
+      phoneNumber: updateData.phone || producer.phoneNumber,
+      gender: updateData.gender || producer.gender,
+      backupPhone: updateData.backupPhone || producer.backupPhone,
+      profileImage: updateData.profileImage || producer.profileImage,
+    });
+
+    await producer.save();
+
+    // Update user data if provided
+    if (updateData.firstName || updateData.lastName || updateData.email) {
+      const user = await User.findById(userId);
+      if (user) {
+        Object.assign(user, {
+          firstName: updateData.firstName || user.firstName,
+          lastName: updateData.lastName || user.lastName,
+          email: updateData.email || user.email,
+        });
+        await user.save();
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "Kişisel bilgiler başarıyla güncellendi",
+      data: {
+        producer: {
+          id: producer._id,
+          companyName: producer.companyName,
+          taxIdNumber: producer.taxIdNumber,
+          phoneNumber: producer.phoneNumber,
+          gender: producer.gender,
+          backupPhone: producer.backupPhone,
+          profileImage: producer.profileImage,
+        },
+        storefront: null,
+      },
+    });
+  } catch (error) {
+    console.error("Producer personal profile güncellenirken hata:", error);
+    res.status(500).json({
+      success: false,
+      message: "Producer kişisel profili güncellenemedi",
+    });
+  }
+});
+
+// GET all categories for producer
+router.get("/categories", async (req: AuthRequest, res: Response) => {
+  try {
+    const categories = await ProductionCategory.find({ isActive: true }).sort({
+      name: 1,
+    });
+
+    res.json({
+      categories,
+    });
+  } catch (error) {
+    console.error("Kategoriler getirilirken hata:", error);
+    res.status(500).json({ message: "Kategoriler getirilemedi" });
+  }
+});
+
+// POST upload company video (ilk yükleme)
+router.post(
+  "/my-shop-window/video",
+  async (req: AuthRequest, res: Response) => {
+    // Use multer with "video" field name
+    const uploadVideo = multer({
+      storage: multerS3({
+        s3: s3Client,
+        bucket: process.env.AWS_S3_BUCKET_NAME || "uretix-bucket",
+        metadata: function (req, file, cb) {
+          cb(null, { fieldName: file.fieldname });
+        },
+        key: function (req, file, cb) {
+          // Generate unique filename for videos
+          const fileName = `videos/${Date.now()}-${file.originalname}`;
+          cb(null, fileName);
+        },
+        acl: "public-read", // Make videos publicly accessible
+        contentType: function (req, file, cb) {
+          cb(null, file.mimetype);
+        },
+      }),
+      limits: {
+        fileSize: 100 * 1024 * 1024, // 100MB limit for videos
+      },
+      fileFilter: (req, file, cb) => {
+        // Allow only video files
+        if (file.mimetype.startsWith("video/")) {
+          cb(null, true);
+        } else {
+          cb(new Error("Sadece video dosyaları kabul edilir"));
+        }
+      },
+    }).single("video");
+
+    uploadVideo(req, res, async (err) => {
+      if (err) {
+        return res.status(400).json({
+          success: false,
+          message: "Video yükleme hatası",
+          error: err.message,
+        });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "Video dosyası seçilmedi",
+        });
+      }
+
+      try {
+        const userId = req.user?.id;
+        const file = req.file as any;
+
+        // Find producer by user ID
+        const producer = await Producer.findOne({ user: userId });
+
+        if (!producer) {
+          return res.status(404).json({
+            success: false,
+            message: "Producer bulunamadı",
+          });
+        }
+
+        // Find or create storefront
+        let storefront = await ProducerStorefront.findOne({
+          producer: producer._id,
+        });
+
+        if (!storefront) {
+          storefront = new ProducerStorefront({
+            producer: producer._id,
+            companyVideo: file.location,
+          });
+        } else {
+          storefront.companyVideo = file.location;
+        }
+
+        await storefront.save();
+
+        res.json({
+          success: true,
+          message: "Video başarıyla yüklendi",
+          data: {
+            videoUrl: file.location,
+          },
+        });
+      } catch (error) {
+        console.error("Video yükleme hatası:", error);
+        res.status(500).json({
+          success: false,
+          message: "Video yüklenirken hata oluştu",
+        });
+      }
+    });
+  }
+);
+
+// Video güncelleme için multer middleware'i en üstte tanımla
+const updateVideoMulter = multer({
+  storage: multerS3({
+    s3: s3Client,
+    bucket: process.env.AWS_S3_BUCKET_NAME || "uretix-bucket",
+    metadata: function (req, file, cb) {
+      cb(null, { fieldName: file.fieldname });
+    },
+    key: function (req, file, cb) {
+      const fileName = `videos/${Date.now()}-${file.originalname}`;
+      cb(null, fileName);
+    },
+    acl: "public-read",
+    contentType: function (req, file, cb) {
+      cb(null, file.mimetype);
+    },
+  }),
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit
+    fileSize: 100 * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith("video/")) {
       cb(null, true);
     } else {
-      cb(new Error("Only video files are allowed"));
+      cb(new Error("Sadece video dosyaları kabul edilir"));
     }
   },
-});
+}).single("video");
 
-// Get all producers (for debugging)
-router.get("/", async (req, res) => {
-  try {
-    const { Producer } = await import("../models/Producer.model");
-    const producers = await Producer.find()
-      .populate("user", "firstName lastName email")
-      .lean();
-
-    res.json({
-      success: true,
-      data: producers,
-    });
-  } catch (error) {
-    console.error("Error getting producers:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to get producers",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
-});
-
-// Create producer profile (for debugging)
-router.post("/", async (req, res) => {
-  try {
-    const { Producer } = await import("../models/Producer.model");
-    const { User } = await import("../models/User.model");
-    const { Types } = await import("mongoose");
-
-    const {
-      userId,
-      companyName,
-      taxIdNumber,
-      phoneNumber,
-      gender,
-      backupPhone,
-    } = req.body;
-
-    // Check if user exists
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    // Check if producer already exists
-    const existingProducer = await Producer.findOne({ user: userId });
-    if (existingProducer) {
-      return res.status(400).json({
-        success: false,
-        message: "Producer profile already exists for this user",
-      });
-    }
-
-    // Create producer
-    const producer = new Producer({
-      user: new Types.ObjectId(userId),
-      companyName,
-      taxIdNumber,
-      phoneNumber,
-      gender,
-      backupPhone,
-      isVerified: false,
-    });
-
-    await producer.save();
-
-    res.json({
-      success: true,
-      message: "Producer profile created successfully",
-      data: producer,
-    });
-  } catch (error) {
-    console.error("Error creating producer:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to create producer",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
-});
-
-// Get producer my shop window
-router.get(
-  "/my-shop-window",
-  authenticateToken,
-  validateProducerRole,
-  async (req: AuthRequest, res) => {
-    try {
-      const producerId = req.user?.id;
-      if (!producerId) {
-        return res.status(401).json({
-          success: false,
-          message: "User not authenticated",
-        });
-      }
-
-      const profile = await ProducerService.getProfile(producerId);
-
-      res.json({
-        success: true,
-        data: profile,
-      });
-    } catch (error) {
-      console.error("Error getting producer my shop window:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to get producer my shop window",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  }
-);
-
-// Get producer profile (kişisel bilgiler)
-router.get(
-  "/profile",
-  authenticateToken,
-  validateProducerRole,
-  async (req: AuthRequest, res) => {
-    try {
-      const producerId = req.user?.id;
-      if (!producerId) {
-        return res.status(401).json({
-          success: false,
-          message: "User not authenticated",
-        });
-      }
-
-      const profile = await ProducerService.getProfile(producerId);
-
-      res.json({
-        success: true,
-        data: profile,
-      });
-    } catch (error) {
-      console.error("Error getting producer profile:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to get producer profile",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  }
-);
-
-// Update producer my shop window
+// PUT update company video (video değiştirme)
 router.put(
-  "/my-shop-window",
-  authenticateToken,
-  validateProducerRole,
-  async (req: AuthRequest, res) => {
-    try {
-      const producerId = req.user?.id;
-      if (!producerId) {
-        return res.status(401).json({
-          success: false,
-          message: "User not authenticated",
-        });
-      }
-      const profileData = req.body;
-
-      const updatedProfile = await ProducerService.updateProfile(
-        producerId,
-        profileData
-      );
-
-      res.json({
-        success: true,
-        message: "My shop window updated successfully",
-        data: updatedProfile,
-      });
-    } catch (error) {
-      console.error("Error updating producer my shop window:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to update producer my shop window",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  }
-);
-
-// Update producer profile (kişisel bilgiler)
-router.put(
-  "/profile",
-  authenticateToken,
-  validateProducerRole,
-  async (req: AuthRequest, res) => {
-    try {
-      const producerId = req.user?.id;
-      if (!producerId) {
-        return res.status(401).json({
-          success: false,
-          message: "User not authenticated",
-        });
-      }
-
-      const profileData = req.body;
-
-      const updatedProfile = await ProducerService.updatePersonalProfile(
-        producerId,
-        profileData
-      );
-
-      res.json({
-        success: true,
-        message: "Personal profile updated successfully",
-        data: updatedProfile,
-      });
-    } catch (error) {
-      console.error("Error updating producer personal profile:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to update producer personal profile",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  }
-);
-
-// Upload video
-router.post(
   "/my-shop-window/video",
   authenticateToken,
-  validateProducerRole,
-  upload.single("video"),
-  async (req: AuthRequest, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({
-          success: false,
-          message: "No video file provided",
-        });
-      }
-
-      const producerId = req.user?.id;
-      if (!producerId) {
-        return res.status(401).json({
-          success: false,
-          message: "User not authenticated",
-        });
-      }
-      const videoUrl = await ProducerService.uploadVideo(producerId, req.file);
-
-      res.json({
-        success: true,
-        message: "Video uploaded successfully",
-        data: videoUrl,
-      });
-    } catch (error) {
-      console.error("Error uploading video:", error);
-      res.status(500).json({
+  requireProducer,
+  updateVideoMulter,
+  async (req: AuthRequest, res: Response) => {
+    // Artık req.file doğrudan burada olacak!
+    if (!req.file) {
+      return res.status(400).json({
         success: false,
-        message: "Failed to upload video",
-        error: error instanceof Error ? error.message : "Unknown error",
+        message: "Video dosyası seçilmedi",
       });
     }
-  }
-);
 
-// Get producer statistics
-router.get(
-  "/statistics",
-  authenticateToken,
-  validateProducerRole,
-  async (req: AuthRequest, res) => {
     try {
-      const producerId = req.user?.id;
-      if (!producerId) {
-        return res.status(401).json({
+      const userId = req.user?.id;
+      const file = req.file as any;
+
+      // Find producer by user ID
+      const producer = await Producer.findOne({ user: userId });
+
+      if (!producer) {
+        return res.status(404).json({
           success: false,
-          message: "User not authenticated",
+          message: "Producer bulunamadı",
         });
       }
-      const statistics = await ProducerService.getStatistics(producerId);
+
+      // Find storefront
+      const storefront = await ProducerStorefront.findOne({
+        producer: producer._id,
+      });
+
+      if (!storefront) {
+        return res.status(404).json({
+          success: false,
+          message: "Storefront bulunamadı",
+        });
+      }
+
+      // Eski videoyu S3'ten sil
+      if (storefront.companyVideo) {
+        try {
+          const oldVideoKey = storefront.companyVideo.split("/").pop();
+          if (oldVideoKey) {
+            await deleteFromS3(`videos/${oldVideoKey}`);
+            console.log(`Eski video silindi: ${oldVideoKey}`);
+          }
+        } catch (deleteError) {
+          console.error("Eski video silinirken hata:", deleteError);
+          // Eski video silinemese bile devam et
+        }
+      }
+
+      // Yeni video URL'ini güncelle
+      storefront.companyVideo = file.location;
+      await storefront.save();
 
       res.json({
         success: true,
-        data: statistics,
+        message: "Video başarıyla güncellendi",
+        data: {
+          videoUrl: file.location,
+        },
       });
     } catch (error) {
-      console.error("Error getting producer statistics:", error);
+      console.error("Video güncelleme hatası:", error);
       res.status(500).json({
         success: false,
-        message: "Failed to get producer statistics",
-        error: error instanceof Error ? error.message : "Unknown error",
+        message: "Video güncellenirken hata oluştu",
       });
     }
   }

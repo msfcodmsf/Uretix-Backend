@@ -54,7 +54,8 @@ const producerStorefrontSchema = new Schema<IProducerStorefront & Document>(
     },
     companyDescription: {
       type: String,
-      required: true,
+      required: false,
+      default: "",
       maxlength: 2000,
     },
     companyVideo: {
@@ -73,32 +74,38 @@ const producerStorefrontSchema = new Schema<IProducerStorefront & Document>(
     ],
     taxOffice: {
       type: String,
-      required: true,
+      required: false,
+      default: "",
       trim: true,
     },
     taxNumber: {
       type: String,
-      required: true,
+      required: false,
+      default: "",
       trim: true,
     },
     city: {
       type: String,
-      required: true,
+      required: false,
+      default: "",
       trim: true,
     },
     district: {
       type: String,
-      required: true,
+      required: false,
+      default: "",
       trim: true,
     },
     address: {
       type: String,
-      required: true,
+      required: false,
+      default: "",
       trim: true,
     },
     mainProductionCategory: {
       type: String,
-      required: true,
+      required: false,
+      default: "",
       trim: true,
     },
     subProductionCategories: [

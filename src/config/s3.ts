@@ -39,14 +39,15 @@ export const uploadToS3 = multer({
     },
   }),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 100 * 1024 * 1024, // 100MB limit for videos
   },
   fileFilter: (req, file, cb) => {
-    // Allow only images and documents
+    // Allow images, documents, and videos
     if (
       file.mimetype.startsWith("image/") ||
       file.mimetype.startsWith("application/") ||
-      file.mimetype.startsWith("text/")
+      file.mimetype.startsWith("text/") ||
+      file.mimetype.startsWith("video/")
     ) {
       cb(null, true);
     } else {
