@@ -373,6 +373,28 @@ router.get("/categories", async (req: AuthRequest, res: Response) => {
   }
 });
 
+// GET all interest categories for producer
+router.get("/interest-categories", async (req: AuthRequest, res: Response) => {
+  try {
+    const { InterestCategory } = await import("../models");
+
+    const interestCategories = await InterestCategory.find({ isActive: true })
+      .sort({ order: 1, name: 1 })
+      .select("-__v");
+
+    res.json({
+      success: true,
+      data: interestCategories,
+    });
+  } catch (error) {
+    console.error("İlgi alanları kategorileri getirilirken hata:", error);
+    res.status(500).json({
+      success: false,
+      message: "İlgi alanları kategorileri getirilemedi",
+    });
+  }
+});
+
 // POST upload company video (ilk yükleme)
 router.post(
   "/my-shop-window/video",

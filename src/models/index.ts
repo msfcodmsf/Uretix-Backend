@@ -28,5 +28,7 @@ export {
   IProductionCategory,
 } from "./ProductionCategory.model";
 
+export { InterestCategory, IInterestCategory } from "./InterestCategory.model";
+
 // Tax Office Model
 export { TaxOffice, ITaxOffice } from "./TaxOffice.model";

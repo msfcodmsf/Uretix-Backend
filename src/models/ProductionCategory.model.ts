@@ -5,7 +5,7 @@ export interface IProductionCategory {
   id: string; // Virtual property for _id
   name: string;
   type: "vitrin" | "hizmet" | "ilgi" | "diger";
-  vitrinCategory?: "uretim" | "kargo";
+  vitrinCategory?: "uretim" | "kargo" | "ilgi";
   parentCategory?: string; // Ana kategori ID'si (alt kategoriler için)
   isActive: boolean;
   createdAt: Date;
@@ -28,7 +28,7 @@ const productionCategorySchema = new Schema<IProductionCategory & Document>(
     },
     vitrinCategory: {
       type: String,
-      enum: ["uretim", "kargo"],
+      enum: ["uretim", "kargo", "ilgi"],
       required: function () {
         return this.type === "vitrin";
       },
@@ -37,7 +37,12 @@ const productionCategorySchema = new Schema<IProductionCategory & Document>(
       type: String,
       ref: "ProductionCategory",
       required: function () {
-        return this.type === "hizmet"; // Hizmet kategorileri için parent gerekli
+        // Sadece vitrinCategory "uretim" olan ve parentCategory değeri olan kategoriler için zorunlu
+        return (
+          this.type === "vitrin" &&
+          this.vitrinCategory === "uretim" &&
+          this.parentCategory
+        );
       },
     },
     isActive: { type: Boolean, default: true },
