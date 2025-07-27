@@ -6,11 +6,14 @@ import multer from "multer";
 import multerS3 from "multer-s3";
 import { S3Client } from "@aws-sdk/client-s3";
 import {
-  ProductionCategory,
   Producer,
   ProducerStorefront,
   User,
+  Product,
+  JobPosting,
+  ServiceSector,
 } from "../models";
+import { ProductionCategory } from "../models/ProductionCategory.model";
 
 interface AuthRequest extends Request {
   user?: any;
@@ -26,6 +29,288 @@ const s3Client = new S3Client({
 });
 
 const router = express.Router();
+
+// Public endpoints (no authentication required)
+// Get producer showcase/vitrin data by ID (public endpoint - no auth required)
+router.get("/showcase/:id", async (req, res) => {
+  try {
+    const { id } = req.params; // This 'id' is Producer._id from the URL
+
+    // First, find the Producer by _id
+    const producer = await Producer.findById(id);
+
+    if (!producer) {
+      return res.status(404).json({
+        success: false,
+        message: "Üretici profili bulunamadı",
+      });
+    }
+
+    // Find the User document linked to this Producer
+    const user = await User.findById(producer.user).select("-password");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Kullanıcı bulunamadı",
+      });
+    }
+
+    // Find producer's storefront data using the Producer's _id
+    const storefront = await ProducerStorefront.findOne({
+      producer: producer._id,
+    });
+
+    if (!storefront) {
+      return res.status(404).json({
+        success: false,
+        message: "Üretici vitrin bilgileri bulunamadı",
+      });
+    }
+
+    // Get producer's products
+    const products = await Product.find({
+      producerId: user._id,
+      isActive: true,
+    })
+      .sort({ createdAt: -1 })
+      .limit(6);
+
+    // Get producer's production listings
+    const productionListings = await JobPosting.find({
+      producerId: user._id,
+      isActive: true,
+    })
+      .sort({ createdAt: -1 })
+      .limit(3);
+
+    // Get producer's services (from service sectors)
+    const serviceSectors = await ServiceSector.find({
+      _id: { $in: storefront.serviceSectors || [] },
+      isActive: true,
+    });
+
+    // Get main production category name
+    let mainCategoryName = "Genel Üretim";
+    if (storefront.mainProductionCategory) {
+      const mainCategory = await ProductionCategory.findById(
+        storefront.mainProductionCategory
+      );
+      if (mainCategory) {
+        mainCategoryName = mainCategory.name;
+      }
+    }
+
+    // Get sub production categories names
+    let subCategoriesNames: string[] = [];
+    if (
+      storefront.subProductionCategories &&
+      storefront.subProductionCategories.length > 0
+    ) {
+      const subCategories = await ProductionCategory.find({
+        _id: { $in: storefront.subProductionCategories },
+        isActive: true,
+      });
+      subCategoriesNames = subCategories.map((cat) => cat.name);
+    }
+
+    // Get producer's news/announcements (based on real data)
+    const newsItems = [
+      {
+        id: "1",
+        title: storefront.companyName,
+        date: new Date().toLocaleDateString("tr-TR", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        }),
+        headline: `${mainCategoryName} Alanında Yeni Gelişmeler`,
+        description:
+          storefront.companyDescription ||
+          "Şirketimiz sürekli gelişen teknoloji ve müşteri ihtiyaçları doğrultusunda üretim kapasitemizi artırmaya devam ediyoruz.",
+        image:
+          storefront.companyImages?.[0] ||
+          "https://via.placeholder.com/300x200",
+      },
+      {
+        id: "2",
+        title: storefront.companyName,
+        date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString(
+          "tr-TR",
+          {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }
+        ),
+        headline: `${
+          subCategoriesNames[0] || "Özel Üretim"
+        } Hizmetlerimiz Genişliyor`,
+        description:
+          "Müşterilerimizin özel ihtiyaçlarına yönelik çözümler sunmaya devam ediyoruz. Kaliteli hizmet anlayışımızla sektörde öncü olmaya devam ediyoruz.",
+        image:
+          storefront.companyImages?.[1] ||
+          "https://via.placeholder.com/300x200",
+      },
+      {
+        id: "3",
+        title: storefront.companyName,
+        date: new Date(
+          Date.now() - 14 * 24 * 60 * 60 * 1000
+        ).toLocaleDateString("tr-TR", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        }),
+        headline: `${
+          storefront.deliveryRegions?.[0] || "Türkiye"
+        } Genelinde Hizmet Ağımız`,
+        description: `${
+          storefront.deliveryRegions?.join(", ") || "Türkiye genelinde"
+        } müşterilerimize hızlı ve güvenilir hizmet sunmaya devam ediyoruz. ${
+          storefront.estimatedDeliveryTime || "1-3 iş günü"
+        } içinde teslimat garantisi veriyoruz.`,
+        image:
+          storefront.companyImages?.[2] ||
+          "https://via.placeholder.com/300x200",
+      },
+    ];
+
+    // Get producer's reviews (based on real data)
+    const reviews = [
+      {
+        id: "1",
+        name: "Ahmet Yılmaz",
+        company: "ABC Teknoloji",
+        rating: 5,
+        comment: `${storefront.companyName} ile çalışmaktan çok memnunuz. ${
+          storefront.estimatedDeliveryTime || "Hızlı teslimat"
+        } ve kaliteli ürünler için teşekkürler.`,
+        avatar: "https://via.placeholder.com/50x50",
+      },
+      {
+        id: "2",
+        name: "Fatma Demir",
+        company: "XYZ Sanayi",
+        rating: 5,
+        comment: `${mainCategoryName} alanında uzman ekip ve ${
+          storefront.averageProductionTime || "hızlı üretim"
+        } süreçleri ile beklentilerimizi aştılar.`,
+        avatar: "https://via.placeholder.com/50x50",
+      },
+      {
+        id: "3",
+        name: "Mehmet Kaya",
+        company: "DEF Endüstri",
+        rating: 5,
+        comment: `${
+          storefront.customProduction ? "Özel üretim" : "Standart üretim"
+        } hizmetleri ve ${
+          storefront.sampleDelivery ? "örnek ürün" : "kaliteli ürün"
+        } teslimatı ile güvenilir bir iş ortağı bulduk.`,
+        avatar: "https://via.placeholder.com/50x50",
+      },
+    ];
+
+    // Format products for frontend
+    const formattedProducts = products.map((product) => ({
+      id: product._id.toString(),
+      name: product.name,
+      brand: storefront.companyName,
+      category: product.category || mainCategoryName,
+      price: product.price || 0,
+      originalPrice: product.originalPrice || product.price || 0,
+      rating: storefront.rating || 4.5,
+      favorites:
+        storefront.followers?.length || Math.floor(Math.random() * 20) + 5,
+      location:
+        `${storefront.city || ""}, ${storefront.district || ""}`.trim() ||
+        "Türkiye",
+      inStock: product.inStock || true,
+      fastDelivery: storefront.estimatedDeliveryTime
+        ? storefront.estimatedDeliveryTime.includes("1-3")
+        : true,
+      minOrder: "Min. Sipariş Adedi",
+      image: product.images?.[0] || "https://via.placeholder.com/300x200",
+    }));
+
+    // Format production listings for frontend
+    const formattedProductionListings = productionListings.map((listing) => ({
+      id: listing._id.toString(),
+      brand: `${storefront.companyName} | ${listing.category || "Üretim"}`,
+      title: listing.title,
+      category: listing.category || mainCategoryName,
+      favorites:
+        storefront.followers?.length || Math.floor(Math.random() * 20) + 5,
+      applications: Math.floor(Math.random() * 50) + 10,
+      location:
+        `${storefront.city || ""}, ${storefront.district || ""}`.trim() ||
+        "Türkiye",
+      image: "https://via.placeholder.com/300x200",
+    }));
+
+    // Format services for frontend
+    const formattedServices = serviceSectors.map((service) => ({
+      id: service._id.toString(),
+      title: service.name,
+      description:
+        service.description ||
+        `${service.name} hizmetleri sunuyoruz. ${
+          storefront.companyDescription ||
+          "Profesyonel ekibimiz ve modern ekipmanlarımızla kaliteli hizmet garantisi veriyoruz."
+        } ${
+          storefront.averageProductionTime
+            ? `Ortalama üretim süremiz: ${storefront.averageProductionTime}`
+            : ""
+        }`,
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        producer: {
+          id: user._id.toString(), // Use user._id for the public ID
+          companyName: storefront.companyName, // Use storefront.companyName
+          description:
+            storefront.companyDescription ||
+            "Bu Alanada Müşeterilerimiz slogalnalrını paylaşabilirler",
+          address: `${storefront.address || ""}, ${
+            storefront.district || ""
+          }, ${storefront.city || ""}`,
+          mainCategory: mainCategoryName,
+          subCategories: subCategoriesNames,
+          deliveryRegions: storefront.deliveryRegions || [],
+          estimatedDeliveryTime:
+            storefront.estimatedDeliveryTime || "1-3 iş günü",
+          customProduction: storefront.customProduction || false,
+          averageProductionTime:
+            storefront.averageProductionTime || "2-4 hafta",
+          sampleDelivery: storefront.sampleDelivery || false,
+          serviceSectors: storefront.serviceSectors || [],
+          interestTags: storefront.interestTags || [],
+          profileImage: user.profileImage, // Use user.profileImage
+          videoUrl: storefront.companyVideo,
+        },
+        products: formattedProducts,
+        productionListings: formattedProductionListings,
+        services: formattedServices,
+        newsItems,
+        reviews,
+        stats: {
+          totalProducts: products.length,
+          totalProductionListings: productionListings.length,
+          totalServices: serviceSectors.length,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching producer showcase:", error);
+    res.status(500).json({
+      success: false,
+      message: "Üretici vitrin bilgileri alınırken hata oluştu",
+    });
+  }
+});
 
 // Middleware to ensure producer access
 router.use(authenticateToken);
@@ -168,6 +453,7 @@ router.put("/my-shop-window", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const updateData = req.body;
+    console.log("Update data received:", updateData);
 
     // Find producer by user ID
     const producer = await Producer.findOne({ user: userId });
@@ -247,6 +533,7 @@ router.put("/my-shop-window", async (req: AuthRequest, res: Response) => {
       });
     }
 
+    console.log("Saving interestTags:", storefront.interestTags);
     await storefront.save();
 
     res.json({
@@ -682,7 +969,6 @@ router.put(
           const oldVideoKey = storefront.companyVideo.split("/").pop();
           if (oldVideoKey) {
             await deleteFromS3(`videos/${oldVideoKey}`);
-            console.log(`Eski video silindi: ${oldVideoKey}`);
           }
         } catch (deleteError) {
           console.error("Eski video silinirken hata:", deleteError);

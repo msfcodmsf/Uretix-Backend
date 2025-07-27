@@ -10,6 +10,7 @@ export interface IUser {
   password: string;
   firstName: string;
   lastName: string;
+  companyName?: string;
   profileImage?: string;
   isActive: boolean;
   role: UserRole;
@@ -46,6 +47,11 @@ const userSchema = new Schema<IUser & Document>(
       required: true,
       trim: true,
       maxlength: 50,
+    },
+    companyName: {
+      type: String,
+      trim: true,
+      maxlength: 100,
     },
     profileImage: {
       type: String,

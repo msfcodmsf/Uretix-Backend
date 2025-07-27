@@ -9,9 +9,11 @@ export interface IProduct {
   category: string;
   subCategory: string;
   price: number;
+  originalPrice?: number;
   currency: string;
   unit: string;
   minimumOrderQuantity: number;
+  inStock?: boolean;
   maximumOrderQuantity?: number;
   availableQuantity: number;
   images: string[];
@@ -58,6 +60,10 @@ const productSchema = new Schema<IProduct & Document>(
       required: true,
       min: 0,
     },
+    originalPrice: {
+      type: Number,
+      min: 0,
+    },
     currency: {
       type: String,
       default: "TL",
@@ -72,6 +78,10 @@ const productSchema = new Schema<IProduct & Document>(
       type: Number,
       required: true,
       min: 1,
+    },
+    inStock: {
+      type: Boolean,
+      default: true,
     },
     maximumOrderQuantity: {
       type: Number,

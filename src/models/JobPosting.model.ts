@@ -6,6 +6,7 @@ export interface IJobPosting {
   producer: Types.ObjectId;
   title: string;
   description: string;
+  category?: string;
   requirements: string[];
   responsibilities: string[];
   location: string;
@@ -34,6 +35,10 @@ const jobPostingSchema = new Schema<IJobPosting & Document>(
       required: true,
       trim: true,
       maxlength: 100,
+    },
+    category: {
+      type: String,
+      trim: true,
     },
     description: {
       type: String,
