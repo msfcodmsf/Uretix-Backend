@@ -65,10 +65,8 @@ router.post("/register/user", async (req: Request, res: Response) => {
 });
 
 // Üretici kaydı
-router.post("/register/producer", async (req: Request, res: Response) => {
+router.post("/register/my-dashboard", async (req: Request, res: Response) => {
   try {
-    console.log("Producer registration request received:", req.body);
-
     const {
       email,
       password,
@@ -156,7 +154,6 @@ router.post("/register/producer", async (req: Request, res: Response) => {
       },
     };
 
-    console.log("Sending successful response:", response);
     res.status(201).json(response);
   } catch (error: unknown) {
     console.error("Producer registration error:", error);

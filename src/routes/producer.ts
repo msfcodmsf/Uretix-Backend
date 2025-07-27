@@ -271,6 +271,8 @@ router.get("/showcase/:id", async (req, res) => {
         producer: {
           id: user._id.toString(), // Use user._id for the public ID
           companyName: storefront.companyName, // Use storefront.companyName
+          slogan: storefront.companySlogan || "",
+          logoUrl: storefront.companyLogo || "",
           description:
             storefront.companyDescription ||
             "Bu Alanada Müşeterilerimiz slogalnalrını paylaşabilirler",
@@ -372,6 +374,8 @@ router.get("/my-shop-window", async (req: AuthRequest, res: Response) => {
               mainProductionCategory: storefront.mainProductionCategory,
               subProductionCategories: storefront.subProductionCategories,
               companyDescription: storefront.companyDescription,
+              companySlogan: storefront.companySlogan,
+              companyLogo: storefront.companyLogo,
               companyVideo: storefront.companyVideo,
               deliveryRegions: storefront.deliveryRegions,
               estimatedDeliveryTime: storefront.estimatedDeliveryTime,
@@ -453,7 +457,6 @@ router.put("/my-shop-window", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const updateData = req.body;
-    console.log("Update data received:", updateData);
 
     // Find producer by user ID
     const producer = await Producer.findOne({ user: userId });
@@ -475,6 +478,8 @@ router.put("/my-shop-window", async (req: AuthRequest, res: Response) => {
         producer: producer._id,
         companyName: updateData.companyName || producer.companyName,
         companyDescription: updateData.description || "",
+        companySlogan: updateData.slogan || "",
+        companyLogo: updateData.logoUrl || "",
         companyVideo: updateData.videoUrl || "",
         taxOffice: updateData.taxOffice || "",
         taxNumber: updateData.taxNumber || producer.taxIdNumber,
@@ -500,6 +505,8 @@ router.put("/my-shop-window", async (req: AuthRequest, res: Response) => {
         companyName: updateData.companyName || storefront.companyName,
         companyDescription:
           updateData.description || storefront.companyDescription,
+        companySlogan: updateData.slogan || storefront.companySlogan,
+        companyLogo: updateData.logoUrl || storefront.companyLogo,
         companyVideo: updateData.videoUrl || storefront.companyVideo,
         taxOffice: updateData.taxOffice || storefront.taxOffice,
         taxNumber: updateData.taxNumber || storefront.taxNumber,
@@ -533,7 +540,6 @@ router.put("/my-shop-window", async (req: AuthRequest, res: Response) => {
       });
     }
 
-    console.log("Saving interestTags:", storefront.interestTags);
     await storefront.save();
 
     res.json({
@@ -555,6 +561,8 @@ router.put("/my-shop-window", async (req: AuthRequest, res: Response) => {
           mainProductionCategory: storefront.mainProductionCategory,
           subProductionCategories: storefront.subProductionCategories,
           companyDescription: storefront.companyDescription,
+          companySlogan: storefront.companySlogan,
+          companyLogo: storefront.companyLogo,
           companyVideo: storefront.companyVideo,
           deliveryRegions: storefront.deliveryRegions,
           estimatedDeliveryTime: storefront.estimatedDeliveryTime,
@@ -794,6 +802,102 @@ router.get("/service-tags", async (req: AuthRequest, res: Response) => {
   }
 });
 
+// POST upload company logo (ilk yükleme)
+router.post("/my-shop-window/logo", async (req: AuthRequest, res: Response) => {
+  // Use multer with "logo" field name
+  const uploadLogo = multer({
+    storage: multerS3({
+      s3: s3Client,
+      bucket: process.env.AWS_S3_BUCKET_NAME || "uretix-bucket",
+      metadata: function (req, file, cb) {
+        cb(null, { fieldName: file.fieldname });
+      },
+      key: function (req, file, cb) {
+        // Generate unique filename for logos
+        const fileName = `logos/${Date.now()}-${file.originalname}`;
+        cb(null, fileName);
+      },
+      acl: "public-read", // Make logos publicly accessible
+      contentType: function (req, file, cb) {
+        cb(null, file.mimetype);
+      },
+    }),
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5MB limit for logos
+    },
+    fileFilter: (req, file, cb) => {
+      // Allow only image files
+      if (file.mimetype.startsWith("image/")) {
+        cb(null, true);
+      } else {
+        cb(new Error("Sadece resim dosyaları kabul edilir"));
+      }
+    },
+  }).single("logo");
+
+  uploadLogo(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: "Logo yükleme hatası",
+        error: err.message,
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Logo dosyası seçilmedi",
+      });
+    }
+
+    try {
+      const userId = req.user?.id;
+      const file = req.file as any;
+
+      // Find producer by user ID
+      const producer = await Producer.findOne({ user: userId });
+
+      if (!producer) {
+        return res.status(404).json({
+          success: false,
+          message: "Producer bulunamadı",
+        });
+      }
+
+      // Find or create storefront
+      let storefront = await ProducerStorefront.findOne({
+        producer: producer._id,
+      });
+
+      if (!storefront) {
+        storefront = new ProducerStorefront({
+          producer: producer._id,
+          companyLogo: file.location,
+        });
+      } else {
+        storefront.companyLogo = file.location;
+      }
+
+      await storefront.save();
+
+      res.json({
+        success: true,
+        message: "Logo başarıyla yüklendi",
+        data: {
+          logoUrl: file.location,
+        },
+      });
+    } catch (error) {
+      console.error("Logo yükleme hatası:", error);
+      res.status(500).json({
+        success: false,
+        message: "Logo yüklenirken hata oluştu",
+      });
+    }
+  });
+});
+
 // POST upload company video (ilk yükleme)
 router.post(
   "/my-shop-window/video",
@@ -893,6 +997,35 @@ router.post(
   }
 );
 
+// Logo güncelleme için multer middleware'i
+const updateLogoMulter = multer({
+  storage: multerS3({
+    s3: s3Client,
+    bucket: process.env.AWS_S3_BUCKET_NAME || "uretix-bucket",
+    metadata: function (req, file, cb) {
+      cb(null, { fieldName: file.fieldname });
+    },
+    key: function (req, file, cb) {
+      const fileName = `logos/${Date.now()}-${file.originalname}`;
+      cb(null, fileName);
+    },
+    acl: "public-read",
+    contentType: function (req, file, cb) {
+      cb(null, file.mimetype);
+    },
+  }),
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Sadece resim dosyaları kabul edilir"));
+    }
+  },
+}).single("logo");
+
 // Video güncelleme için multer middleware'i en üstte tanımla
 const updateVideoMulter = multer({
   storage: multerS3({
@@ -921,6 +1054,80 @@ const updateVideoMulter = multer({
     }
   },
 }).single("video");
+
+// PUT update company logo (logo değiştirme)
+router.put(
+  "/my-shop-window/logo",
+  authenticateToken,
+  requireProducer,
+  updateLogoMulter,
+  async (req: AuthRequest, res: Response) => {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Logo dosyası seçilmedi",
+      });
+    }
+
+    try {
+      const userId = req.user?.id;
+      const file = req.file as any;
+
+      // Find producer by user ID
+      const producer = await Producer.findOne({ user: userId });
+
+      if (!producer) {
+        return res.status(404).json({
+          success: false,
+          message: "Producer bulunamadı",
+        });
+      }
+
+      // Find storefront
+      const storefront = await ProducerStorefront.findOne({
+        producer: producer._id,
+      });
+
+      if (!storefront) {
+        return res.status(404).json({
+          success: false,
+          message: "Storefront bulunamadı",
+        });
+      }
+
+      // Eski logoyu S3'ten sil
+      if (storefront.companyLogo) {
+        try {
+          const oldLogoKey = storefront.companyLogo.split("/").pop();
+          if (oldLogoKey) {
+            await deleteFromS3(`logos/${oldLogoKey}`);
+          }
+        } catch (deleteError) {
+          console.error("Eski logo silinirken hata:", deleteError);
+          // Eski logo silinemese bile devam et
+        }
+      }
+
+      // Yeni logo URL'ini güncelle
+      storefront.companyLogo = file.location;
+      await storefront.save();
+
+      res.json({
+        success: true,
+        message: "Logo başarıyla güncellendi",
+        data: {
+          logoUrl: file.location,
+        },
+      });
+    } catch (error) {
+      console.error("Logo güncelleme hatası:", error);
+      res.status(500).json({
+        success: false,
+        message: "Logo güncellenirken hata oluştu",
+      });
+    }
+  }
+);
 
 // PUT update company video (video değiştirme)
 router.put(

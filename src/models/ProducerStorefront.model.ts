@@ -6,6 +6,7 @@ export interface IProducerStorefront {
   producer: Types.ObjectId;
   companyName: string;
   companyDescription: string;
+  companySlogan?: string;
   companyVideo?: string;
   companyLogo?: string;
   companyImages?: string[];
@@ -58,6 +59,13 @@ const producerStorefrontSchema = new Schema<IProducerStorefront & Document>(
       required: false,
       default: "",
       maxlength: 2000,
+    },
+    companySlogan: {
+      type: String,
+      required: false,
+      default: "",
+      trim: true,
+      maxlength: 200,
     },
     companyVideo: {
       type: String,
