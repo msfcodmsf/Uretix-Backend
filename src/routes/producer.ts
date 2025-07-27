@@ -373,24 +373,136 @@ router.get("/categories", async (req: AuthRequest, res: Response) => {
   }
 });
 
+// GET subcategories for a specific parent category
+router.get(
+  "/categories/:parentId/subcategories",
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { parentId } = req.params;
+
+      const subcategories = await ProductionCategory.find({
+        parentCategory: parentId,
+        type: "vitrin",
+        vitrinCategory: "uretim",
+        isActive: true,
+      }).sort({ name: 1 });
+
+      res.json({
+        subcategories,
+      });
+    } catch (error) {
+      console.error("Alt kategoriler getirilirken hata:", error);
+      res.status(500).json({ message: "Alt kategoriler getirilemedi" });
+    }
+  }
+);
+
 // GET all interest categories for producer
 router.get("/interest-categories", async (req: AuthRequest, res: Response) => {
   try {
     const { InterestCategory } = await import("../models");
+    const { search } = req.query;
 
-    const interestCategories = await InterestCategory.find({ isActive: true })
+    let filter: any = { isActive: true };
+
+    // Arama filtresi ekle
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const interestCategories = await InterestCategory.find(filter)
       .sort({ order: 1, name: 1 })
       .select("-__v");
 
-    res.json({
+    const response = {
       success: true,
       data: interestCategories,
-    });
+    };
+
+    res.json(response);
   } catch (error) {
     console.error("İlgi alanları kategorileri getirilirken hata:", error);
     res.status(500).json({
       success: false,
       message: "İlgi alanları kategorileri getirilemedi",
+    });
+  }
+});
+
+// GET service sectors for producer
+router.get("/service-sectors", async (req: AuthRequest, res: Response) => {
+  try {
+    const { ServiceSector } = await import("../models");
+    const { search } = req.query;
+
+    let filter: any = { isActive: true };
+
+    // Arama filtresi ekle
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const serviceSectors = await ServiceSector.find(filter)
+      .sort({ order: 1, name: 1 })
+      .select("-__v");
+
+    const response = {
+      success: true,
+      data: serviceSectors,
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error("Hizmet sektörleri getirilirken hata:", error);
+    res.status(500).json({
+      success: false,
+      message: "Hizmet sektörleri getirilemedi",
+    });
+  }
+});
+
+// GET service tags for producer (legacy - keeping for backward compatibility)
+router.get("/service-tags", async (req: AuthRequest, res: Response) => {
+  try {
+    // Hizmet etiketleri - şimdilik statik olarak tanımlı, ileride veritabanından çekilebilir
+    const serviceTags = [
+      "Hızlı Teslimat",
+      "Kaliteli Malzeme",
+      "Özel Tasarım",
+      "Toplu Üretim",
+      "Numune Gönderimi",
+      "Garantili Ürün",
+      "Çevre Dostu",
+      "ISO Sertifikalı",
+      "Müşteri Memnuniyeti",
+      "Uygun Fiyat",
+      "Teknik Destek",
+      "7/24 Hizmet",
+      "Deneyimli Ekip",
+      "Modern Teknoloji",
+      "Sürdürülebilir",
+      "Yerli Üretim",
+      "İhracat Kalitesi",
+      "Özel Projeler",
+      "Hızlı Prototip",
+      "Kalite Kontrol",
+    ];
+
+    res.json({
+      success: true,
+      data: serviceTags,
+    });
+  } catch (error) {
+    console.error("Hizmet etiketleri getirilirken hata:", error);
+    res.status(500).json({
+      success: false,
+      message: "Hizmet etiketleri getirilemedi",
     });
   }
 });

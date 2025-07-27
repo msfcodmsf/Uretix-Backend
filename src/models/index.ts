@@ -30,5 +30,8 @@ export {
 
 export { InterestCategory, IInterestCategory } from "./InterestCategory.model";
 
+// Service Sector Model
+export { ServiceSector, IServiceSector } from "./ServiceSector.model";
+
 // Tax Office Model
 export { TaxOffice, ITaxOffice } from "./TaxOffice.model";

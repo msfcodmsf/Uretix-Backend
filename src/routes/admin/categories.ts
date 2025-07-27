@@ -1,7 +1,11 @@
 import express from "express";
 import { authenticateToken } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/roleAuth";
-import { ProductionCategory, InterestCategory } from "../../models";
+import {
+  ProductionCategory,
+  InterestCategory,
+  ServiceSector,
+} from "../../models";
 
 const router = express.Router();
 
@@ -194,6 +198,137 @@ router.delete("/interest-categories/:id", async (req, res) => {
   } catch (error) {
     console.error("İlgi alanı kategorisi silinirken hata:", error);
     res.status(500).json({ message: "İlgi alanı kategorisi silinemedi" });
+  }
+});
+
+// ===== SERVICE SECTORS ENDPOINTS =====
+
+// GET all service sectors
+router.get("/service-sectors", async (req, res) => {
+  try {
+    const { search, isActive } = req.query;
+    let filter: any = {};
+
+    if (isActive !== undefined) {
+      filter.isActive = isActive === "true";
+    }
+
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const sectors = await ServiceSector.find(filter)
+      .sort({ order: 1, name: 1 })
+      .select("-__v");
+
+    res.json(sectors);
+  } catch (error) {
+    console.error("Hizmet sektörleri getirilirken hata:", error);
+    res.status(500).json({ message: "Hizmet sektörleri getirilemedi" });
+  }
+});
+
+// POST create new service sector
+router.post("/service-sectors", async (req, res) => {
+  try {
+    const { name, description, icon, color, order } = req.body;
+
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({ message: "Sektör adı gereklidir" });
+    }
+
+    // Check for existing sector with same name
+    const existingSector = await ServiceSector.findOne({
+      name: name.trim(),
+    });
+
+    if (existingSector) {
+      return res
+        .status(400)
+        .json({ message: "Bu isimde bir hizmet sektörü zaten mevcut" });
+    }
+
+    const sectorData: any = {
+      name: name.trim(),
+      isActive: true,
+    };
+
+    if (description) sectorData.description = description.trim();
+    if (icon) sectorData.icon = icon.trim();
+    if (color) sectorData.color = color.trim();
+    if (order !== undefined) sectorData.order = Number(order);
+
+    const sector = new ServiceSector(sectorData);
+    await sector.save();
+
+    res.status(201).json(sector);
+  } catch (error) {
+    console.error("Hizmet sektörü oluşturulurken hata:", error);
+    res.status(500).json({ message: "Hizmet sektörü oluşturulamadı" });
+  }
+});
+
+// PUT update service sector
+router.put("/service-sectors/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, icon, color, isActive, order } = req.body;
+
+    const sector = await ServiceSector.findById(id);
+    if (!sector) {
+      return res.status(404).json({ message: "Hizmet sektörü bulunamadı" });
+    }
+
+    if (name && name.trim().length > 0) {
+      // Check for existing sector with same name
+      const existingSector = await ServiceSector.findOne({
+        name: name.trim(),
+        _id: { $ne: id },
+      });
+
+      if (existingSector) {
+        return res.status(400).json({
+          message: "Bu isimde bir hizmet sektörü zaten mevcut",
+        });
+      }
+      sector.name = name.trim();
+    }
+
+    if (description !== undefined) sector.description = description.trim();
+    if (icon !== undefined) sector.icon = icon.trim();
+    if (color !== undefined) sector.color = color.trim();
+    if (typeof isActive === "boolean") sector.isActive = isActive;
+    if (order !== undefined) sector.order = Number(order);
+
+    await sector.save();
+    res.json(sector);
+  } catch (error) {
+    console.error("Hizmet sektörü güncellenirken hata:", error);
+    res.status(500).json({ message: "Hizmet sektörü güncellenemedi" });
+  }
+});
+
+// DELETE service sector (soft delete by setting isActive to false)
+router.delete("/service-sectors/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const sector = await ServiceSector.findById(id);
+
+    if (!sector) {
+      return res.status(404).json({ message: "Hizmet sektörü bulunamadı" });
+    }
+
+    // Soft delete - set isActive to false instead of hard delete
+    sector.isActive = false;
+    await sector.save();
+
+    res.json({ message: "Hizmet sektörü başarıyla silindi" });
+  } catch (error) {
+    console.error("Hizmet sektörü silinirken hata:", error);
+    res.status(500).json({ message: "Hizmet sektörü silinemedi" });
   }
 });
 
