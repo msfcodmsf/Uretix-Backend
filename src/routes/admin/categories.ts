@@ -66,6 +66,27 @@ router.get(
   }
 );
 
+// GET sub-subcategories (3rd level) for a specific subcategory
+router.get(
+  "/production-categories/:parentId/subcategories/:subId/sub-subcategories",
+  async (req, res) => {
+    try {
+      const { parentId, subId } = req.params;
+
+      const subSubcategories = await ProductionCategory.find({
+        parentCategory: subId,
+        type: "vitrin",
+        vitrinCategory: "uretim",
+      }).sort({ name: 1 });
+
+      res.json(subSubcategories);
+    } catch (error) {
+      console.error("Alt-alt kategoriler getirilirken hata:", error);
+      res.status(500).json({ message: "Alt-alt kategoriler getirilemedi" });
+    }
+  }
+);
+
 // GET all interest categories
 router.get("/interest-categories", async (req, res) => {
   try {
@@ -370,12 +391,6 @@ router.post("/production-categories", async (req, res) => {
       ) {
         return res.status(400).json({ message: "Geçersiz ana kategori" });
       }
-      // Ana kategorinin kendisinin parent'ı olmaması gerekir
-      if (parentCat.parentCategory) {
-        return res
-          .status(400)
-          .json({ message: "Alt kategori alt kategori olamaz" });
-      }
     }
 
     // Check for existing category with same name and type
@@ -509,6 +524,26 @@ router.put("/production-categories/:id", async (req, res) => {
   }
 });
 
+// DELETE all production categories (Admin only)
+router.delete("/production-categories/delete-all", async (req, res) => {
+  try {
+    // Tüm üretim kategorilerini sil
+    const result = await ProductionCategory.deleteMany({});
+
+    res.json({
+      success: true,
+      message: `Tüm üretim kategorileri başarıyla silindi. Silinen kategori sayısı: ${result.deletedCount}`,
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Tüm kategoriler silinirken hata:", error);
+    res.status(500).json({
+      success: false,
+      message: "Kategoriler silinirken hata oluştu",
+    });
+  }
+});
+
 // DELETE production category (hard delete)
 router.delete("/production-categories/:id", async (req, res) => {
   try {
@@ -523,6 +558,82 @@ router.delete("/production-categories/:id", async (req, res) => {
   } catch (error) {
     console.error("Kategori silinirken hata:", error);
     res.status(500).json({ message: "Kategori silinemedi" });
+  }
+});
+
+// DELETE all interest categories (Admin only)
+router.delete("/interest-categories/delete-all", async (req, res) => {
+  try {
+    // Tüm ilgi alanı kategorilerini sil
+    const result = await InterestCategory.deleteMany({});
+
+    res.json({
+      success: true,
+      message: `Tüm ilgi alanı kategorileri başarıyla silindi. Silinen kategori sayısı: ${result.deletedCount}`,
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Tüm ilgi alanı kategorileri silinirken hata:", error);
+    res.status(500).json({
+      success: false,
+      message: "İlgi alanı kategorileri silinirken hata oluştu",
+    });
+  }
+});
+
+// DELETE all service sectors (Admin only)
+router.delete("/service-sectors/delete-all", async (req, res) => {
+  try {
+    // Tüm hizmet sektörlerini sil
+    const result = await ServiceSector.deleteMany({});
+
+    res.json({
+      success: true,
+      message: `Tüm hizmet sektörleri başarıyla silindi. Silinen sektör sayısı: ${result.deletedCount}`,
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Tüm hizmet sektörleri silinirken hata:", error);
+    res.status(500).json({
+      success: false,
+      message: "Hizmet sektörleri silinirken hata oluştu",
+    });
+  }
+});
+
+// DELETE all categories by type (Admin only)
+router.delete("/categories/delete-all-by-type", async (req, res) => {
+  try {
+    const { type, vitrinCategory } = req.body;
+
+    if (!type) {
+      return res.status(400).json({
+        success: false,
+        message: "Kategori tipi belirtilmelidir",
+      });
+    }
+
+    let filter: any = { type };
+
+    // Eğer vitrin kategorisi belirtilmişse, onu da filtrele
+    if (type === "vitrin" && vitrinCategory) {
+      filter.vitrinCategory = vitrinCategory;
+    }
+
+    const result = await ProductionCategory.deleteMany(filter);
+
+    res.json({
+      success: true,
+      message: `${type} tipindeki kategoriler başarıyla silindi. Silinen kategori sayısı: ${result.deletedCount}`,
+      deletedCount: result.deletedCount,
+      filter,
+    });
+  } catch (error) {
+    console.error("Kategoriler silinirken hata:", error);
+    res.status(500).json({
+      success: false,
+      message: "Kategoriler silinirken hata oluştu",
+    });
   }
 });
 

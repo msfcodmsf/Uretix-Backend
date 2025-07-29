@@ -17,6 +17,7 @@ export interface IProducerStorefront {
   address: string;
   mainProductionCategory: string;
   subProductionCategories: string[];
+  subSubProductionCategories: string[];
   serviceTags: string[];
   serviceSectors: string[];
   interestTags: string[];
@@ -118,6 +119,12 @@ const producerStorefrontSchema = new Schema<IProducerStorefront & Document>(
       trim: true,
     },
     subProductionCategories: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    subSubProductionCategories: [
       {
         type: String,
         trim: true,

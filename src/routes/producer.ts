@@ -10,7 +10,7 @@ import {
   ProducerStorefront,
   User,
   Product,
-  JobPosting,
+  ProductionListing,
   ServiceSector,
 } from "../models";
 import { ProductionCategory } from "../models/ProductionCategory.model";
@@ -70,15 +70,19 @@ router.get("/showcase/:id", async (req, res) => {
 
     // Get producer's products
     const products = await Product.find({
-      producerId: user._id,
+      producer: producer._id,
       isActive: true,
     })
       .sort({ createdAt: -1 })
       .limit(6);
 
+    console.log("Producer ID:", producer._id); // Debug log
+    console.log("Products found:", products.length); // Debug log
+    console.log("Products:", products); // Debug log
+
     // Get producer's production listings
-    const productionListings = await JobPosting.find({
-      producerId: user._id,
+    const productionListings = await ProductionListing.find({
+      producer: producer._id,
       isActive: true,
     })
       .sort({ createdAt: -1 })
@@ -232,6 +236,7 @@ router.get("/showcase/:id", async (req, res) => {
         : true,
       minOrder: "Min. Sipariş Adedi",
       image: product.images?.[0] || "https://via.placeholder.com/300x200",
+      video: product.videoUrl || null,
     }));
 
     // Format production listings for frontend
@@ -281,6 +286,7 @@ router.get("/showcase/:id", async (req, res) => {
           }, ${storefront.city || ""}`,
           mainCategory: mainCategoryName,
           subCategories: subCategoriesNames,
+          subSubCategories: storefront.subSubProductionCategories || [],
           deliveryRegions: storefront.deliveryRegions || [],
           estimatedDeliveryTime:
             storefront.estimatedDeliveryTime || "1-3 iş günü",
@@ -373,6 +379,7 @@ router.get("/my-shop-window", async (req: AuthRequest, res: Response) => {
               address: storefront.address,
               mainProductionCategory: storefront.mainProductionCategory,
               subProductionCategories: storefront.subProductionCategories,
+              subSubProductionCategories: storefront.subSubProductionCategories,
               companyDescription: storefront.companyDescription,
               companySlogan: storefront.companySlogan,
               companyLogo: storefront.companyLogo,
@@ -488,6 +495,7 @@ router.put("/my-shop-window", async (req: AuthRequest, res: Response) => {
         address: updateData.address || "",
         mainProductionCategory: updateData.mainCategory || "",
         subProductionCategories: updateData.subCategories || [],
+        subSubProductionCategories: updateData.subSubCategories || [],
         serviceTags: updateData.serviceTags || [],
         interestTags: updateData.interestTags || [],
         deliveryRegions: updateData.deliveryRegions || [],
@@ -517,6 +525,8 @@ router.put("/my-shop-window", async (req: AuthRequest, res: Response) => {
           updateData.mainCategory || storefront.mainProductionCategory,
         subProductionCategories:
           updateData.subCategories || storefront.subProductionCategories,
+        subSubProductionCategories:
+          updateData.subSubCategories || storefront.subSubProductionCategories,
         serviceTags: updateData.serviceTags || storefront.serviceTags,
         interestTags: updateData.interestTags || storefront.interestTags,
         deliveryRegions:
@@ -560,6 +570,7 @@ router.put("/my-shop-window", async (req: AuthRequest, res: Response) => {
           address: storefront.address,
           mainProductionCategory: storefront.mainProductionCategory,
           subProductionCategories: storefront.subProductionCategories,
+          subSubProductionCategories: storefront.subSubProductionCategories,
           companyDescription: storefront.companyDescription,
           companySlogan: storefront.companySlogan,
           companyLogo: storefront.companyLogo,
@@ -688,6 +699,30 @@ router.get(
     } catch (error) {
       console.error("Alt kategoriler getirilirken hata:", error);
       res.status(500).json({ message: "Alt kategoriler getirilemedi" });
+    }
+  }
+);
+
+// GET sub-subcategories (3rd level) for a specific subcategory
+router.get(
+  "/categories/:parentId/sub-subcategories",
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { parentId } = req.params;
+
+      const subSubcategories = await ProductionCategory.find({
+        parentCategory: parentId,
+        type: "vitrin",
+        vitrinCategory: "uretim",
+        isActive: true,
+      }).sort({ name: 1 });
+
+      res.json({
+        subSubcategories,
+      });
+    } catch (error) {
+      console.error("Alt-alt kategoriler getirilirken hata:", error);
+      res.status(500).json({ message: "Alt-alt kategoriler getirilemedi" });
     }
   }
 );
@@ -1199,6 +1234,148 @@ router.put(
       res.status(500).json({
         success: false,
         message: "Video güncellenirken hata oluştu",
+      });
+    }
+  }
+);
+
+// DELETE company video (video silme)
+router.delete(
+  "/my-shop-window/video",
+  authenticateToken,
+  requireProducer,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+
+      // Find producer by user ID
+      const producer = await Producer.findOne({ user: userId });
+
+      if (!producer) {
+        return res.status(404).json({
+          success: false,
+          message: "Producer bulunamadı",
+        });
+      }
+
+      // Find storefront
+      const storefront = await ProducerStorefront.findOne({
+        producer: producer._id,
+      });
+
+      if (!storefront) {
+        return res.status(404).json({
+          success: false,
+          message: "Storefront bulunamadı",
+        });
+      }
+
+      // Eğer video yoksa hata döndür
+      if (!storefront.companyVideo) {
+        return res.status(404).json({
+          success: false,
+          message: "Silinecek video bulunamadı",
+        });
+      }
+
+      // Videoyu S3'ten sil
+      try {
+        const videoKey = storefront.companyVideo.split("/").pop();
+        if (videoKey) {
+          await deleteFromS3(`videos/${videoKey}`);
+        }
+      } catch (deleteError) {
+        console.error("Video S3'ten silinirken hata:", deleteError);
+        // S3'ten silinemese bile devam et
+      }
+
+      // Storefront'tan video URL'ini kaldır
+      storefront.companyVideo = "";
+      await storefront.save();
+
+      res.json({
+        success: true,
+        message: "Video başarıyla silindi",
+        data: {
+          videoUrl: "",
+        },
+      });
+    } catch (error) {
+      console.error("Video silme hatası:", error);
+      res.status(500).json({
+        success: false,
+        message: "Video silinirken hata oluştu",
+      });
+    }
+  }
+);
+
+// DELETE company logo (logo silme)
+router.delete(
+  "/my-shop-window/logo",
+  authenticateToken,
+  requireProducer,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+
+      // Find producer by user ID
+      const producer = await Producer.findOne({ user: userId });
+
+      if (!producer) {
+        return res.status(404).json({
+          success: false,
+          message: "Producer bulunamadı",
+        });
+      }
+
+      // Find storefront
+      const storefront = await ProducerStorefront.findOne({
+        producer: producer._id,
+      });
+
+      if (!storefront) {
+        return res.status(404).json({
+          success: false,
+          message: "Storefront bulunamadı",
+        });
+      }
+
+      // Eğer logo yoksa hata döndür
+      if (!storefront.companyLogo) {
+        return res.status(404).json({
+          success: false,
+          message: "Silinecek logo bulunamadı",
+        });
+      }
+
+      // Logoyu S3'ten sil
+      try {
+        const logoKey = storefront.companyLogo.split("/").pop();
+        if (logoKey) {
+          await deleteFromS3(`logos/${logoKey}`);
+        }
+      } catch (deleteError) {
+        console.error("Logo S3'ten silinirken hata:", deleteError);
+        // S3'ten silinemese bile devam et
+      }
+
+      // Storefront'tan logo URL'ini kaldır
+      storefront.companyLogo = "";
+      await storefront.save();
+
+      res.json({
+        success: true,
+        message: "Logo başarıyla silindi",
+        data: {
+          logoUrl: "",
+        },
+      });
+    } catch (error) {
+      console.error("Logo silme hatası:", error);
+      res.status(500).json({
+        success: false,
+        message: "Logo silinirken hata oluştu",
       });
     }
   }

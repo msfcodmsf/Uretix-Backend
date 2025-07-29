@@ -3,7 +3,7 @@ import mongoose, { Document, Schema, Types } from "mongoose";
 export interface IJobApplication {
   _id: string;
   id: string; // Virtual property for _id
-  jobPosting: Types.ObjectId;
+  productionListing: Types.ObjectId;
   applicant: Types.ObjectId;
   coverLetter: string;
   resume: string;
@@ -17,9 +17,9 @@ export interface IJobApplication {
 
 const jobApplicationSchema = new Schema<IJobApplication & Document>(
   {
-    jobPosting: {
+    productionListing: {
       type: Schema.Types.ObjectId,
-      ref: "JobPosting",
+      ref: "ProductionListing",
       required: true,
     },
     applicant: {

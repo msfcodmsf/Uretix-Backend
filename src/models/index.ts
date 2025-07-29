@@ -15,7 +15,10 @@ export { Product, IProduct } from "./Product.model";
 export { Order, IOrder } from "./Order.model";
 
 // Job Models
-export { JobPosting, IJobPosting } from "./JobPosting.model";
+export {
+  ProductionListing,
+  IProductionListing,
+} from "./ProductionListing.model";
 export { JobApplication, IJobApplication } from "./JobApplication.model";
 
 // Material Models
@@ -35,3 +38,10 @@ export { ServiceSector, IServiceSector } from "./ServiceSector.model";
 
 // Tax Office Model
 export { TaxOffice, ITaxOffice } from "./TaxOffice.model";
+
+// Product Category Models
+export { MaterialType, IMaterialType } from "./MaterialType.model";
+export { UsageArea, IUsageArea } from "./UsageArea.model";
+
+// News Model
+export { News, INews } from "./News.model";

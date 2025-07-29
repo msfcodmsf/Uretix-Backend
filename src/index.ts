@@ -6,7 +6,12 @@ import authRoutes from "./routes/auth";
 import uploadRoutes from "./routes/upload";
 import adminRoutes from "./routes/admin";
 import producerRoutes from "./routes/producer";
+import productRoutes from "./routes/product";
+import productionListingRoutes from "./routes/productionListing";
+import newsRoutes from "./routes/news";
 import categoryRoutes from "./routes/admin/categories";
+import materialTypesRoutes from "./routes/admin/materialTypes";
+import usageAreasRoutes from "./routes/admin/usageAreas";
 import s3Client from "./config/s3";
 import { ListBucketsCommand } from "@aws-sdk/client-s3";
 
@@ -95,8 +100,13 @@ app.get("/s3-test", async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/admin/categories", categoryRoutes);
 app.use("/api/producer", producerRoutes);
+app.use("/api/product", productRoutes);
+app.use("/api/production-listings", productionListingRoutes);
+app.use("/api/news", newsRoutes);
+app.use("/api/admin/categories", categoryRoutes);
+app.use("/api/admin/material-types", materialTypesRoutes);
+app.use("/api/admin/usage-areas", usageAreasRoutes);
 
 // Start server
 app.listen(PORT, () => {
