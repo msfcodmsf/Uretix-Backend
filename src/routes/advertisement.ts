@@ -5,7 +5,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { authenticateToken } from "../middleware/auth";
 import { requireProducer } from "../middleware/roleAuth";
 import { Producer } from "../models/Producer.model";
-import { ProductionListing } from "../models/ProductionListing.model";
+import { Advertisement } from "../models/Advertisement.model";
 
 const router = express.Router();
 
@@ -24,7 +24,7 @@ const uploadImage = multer({
     s3: s3Client,
     bucket: process.env.AWS_S3_BUCKET || "uretix-bucket",
     key: (req, file, cb) => {
-      const fileName = `production-listings/${Date.now()}-${file.originalname}`;
+      const fileName = `advertisements/${Date.now()}-${file.originalname}`;
       cb(null, fileName);
     },
   }),
@@ -44,7 +44,7 @@ const uploadVideo = multer({
     s3: s3Client,
     bucket: process.env.AWS_S3_BUCKET || "uretix-bucket",
     key: (req, file, cb) => {
-      const fileName = `production-listings/videos/${Date.now()}-${
+      const fileName = `advertisements/videos/${Date.now()}-${
         file.originalname
       }`;
       cb(null, fileName);
@@ -66,7 +66,7 @@ const uploadDocument = multer({
     s3: s3Client,
     bucket: process.env.AWS_S3_BUCKET || "uretix-bucket",
     key: (req, file, cb) => {
-      const fileName = `production-listings/documents/${Date.now()}-${
+      const fileName = `advertisements/documents/${Date.now()}-${
         file.originalname
       }`;
       cb(null, fileName);
@@ -97,10 +97,11 @@ interface AuthRequest extends Request {
 router.use(authenticateToken);
 router.use(requireProducer);
 
-// GET all production listings for the authenticated producer
+// GET all advertisements for the authenticated producer
 router.get("/", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
+    const { status } = req.query;
 
     // Find producer by user ID
     const producer = await Producer.findOne({ user: userId });
@@ -112,24 +113,33 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const productionListings = await ProductionListing.find({
-      producer: producer._id,
-    }).sort({ createdAt: -1 });
+    let query: any = { producer: producer._id };
+
+    // Filter by status
+    if (status === "active") {
+      query.isActive = true;
+    } else if (status === "inactive") {
+      query.isActive = false;
+    }
+
+    const advertisements = await Advertisement.find(query).sort({
+      createdAt: -1,
+    });
 
     res.json({
       success: true,
-      data: productionListings,
+      data: advertisements,
     });
   } catch (error: any) {
-    console.error("Error fetching production listings:", error);
+    console.error("Error fetching advertisements:", error);
     res.status(500).json({
       success: false,
-      message: "Üretim ilanları getirilemedi",
+      message: "Reklamlar getirilemedi",
     });
   }
 });
 
-// GET single production listing by ID
+// GET single advertisement by ID
 router.get("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -145,36 +155,36 @@ router.get("/:id", async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const productionListing = await ProductionListing.findOne({
+    const advertisement = await Advertisement.findOne({
       _id: id,
       producer: producer._id,
     });
 
-    if (!productionListing) {
+    if (!advertisement) {
       return res.status(404).json({
         success: false,
-        message: "Üretim ilanı bulunamadı",
+        message: "Reklam bulunamadı",
       });
     }
 
     res.json({
       success: true,
-      data: productionListing,
+      data: advertisement,
     });
   } catch (error: any) {
-    console.error("Error fetching production listing:", error);
+    console.error("Error fetching advertisement:", error);
     res.status(500).json({
       success: false,
-      message: "Üretim ilanı getirilemedi",
+      message: "Reklam getirilemedi",
     });
   }
 });
 
-// POST create new production listing
+// POST create new advertisement
 router.post("/", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
-    const productionListingData = req.body;
+    const advertisementData = req.body;
 
     // Find producer by user ID
     const producer = await Producer.findOne({ user: userId });
@@ -187,22 +197,10 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     }
 
     // Validate required fields
-    const requiredFields = [
-      "title",
-      "description",
-      "category",
-      "location",
-      "type",
-      "technicalDetails",
-      "productionQuantity",
-      "productionTime",
-      "deliveryTime",
-      "logisticsModel",
-      "productionLocation",
-    ];
+    const requiredFields = ["title", "description"];
 
     const missingFields = requiredFields.filter(
-      (field) => !productionListingData[field]
+      (field) => !advertisementData[field]
     );
 
     if (missingFields.length > 0) {
@@ -213,31 +211,32 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     }
 
     // Set default values for optional fields
-    const productionListingToCreate = {
-      ...productionListingData,
+    const advertisementToCreate = {
+      ...advertisementData,
       producer: producer._id,
-      benefits: productionListingData.benefits || [],
-      applications: [],
+      tags: advertisementData.tags || [],
+      views: 0,
+      clicks: 0,
       isActive:
-        productionListingData.isActive !== undefined
-          ? productionListingData.isActive
+        advertisementData.isActive !== undefined
+          ? advertisementData.isActive
           : true,
     };
 
-    console.log("Production listing to create:", productionListingToCreate);
+    console.log("Advertisement to create:", advertisementToCreate);
 
-    // Create new production listing
-    const productionListing = new ProductionListing(productionListingToCreate);
+    // Create new advertisement
+    const advertisement = new Advertisement(advertisementToCreate);
 
-    await productionListing.save();
+    await advertisement.save();
 
     res.status(201).json({
       success: true,
-      message: "Üretim ilanı başarıyla oluşturuldu",
-      data: productionListing,
+      message: "Reklam başarıyla oluşturuldu",
+      data: advertisement,
     });
   } catch (error: any) {
-    console.error("Error creating production listing:", error);
+    console.error("Error creating advertisement:", error);
 
     // Mongoose validation error
     if (error.name === "ValidationError") {
@@ -253,13 +252,13 @@ router.post("/", async (req: AuthRequest, res: Response) => {
 
     res.status(500).json({
       success: false,
-      message: "Üretim ilanı oluşturulamadı",
+      message: "Reklam oluşturulamadı",
       error: error.message,
     });
   }
 });
 
-// PUT update production listing
+// PUT update advertisement
 router.put("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -276,42 +275,47 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const productionListing = await ProductionListing.findOne({
+    const advertisement = await Advertisement.findOne({
       _id: id,
       producer: producer._id,
     });
 
-    if (!productionListing) {
+    if (!advertisement) {
       return res.status(404).json({
         success: false,
-        message: "Üretim ilanı bulunamadı",
+        message: "Reklam bulunamadı",
       });
     }
 
     // Update fields
     Object.keys(updateData).forEach((key) => {
-      if (key !== "_id" && key !== "producer" && key !== "applications") {
-        (productionListing as any)[key] = updateData[key];
+      if (
+        key !== "_id" &&
+        key !== "producer" &&
+        key !== "views" &&
+        key !== "clicks"
+      ) {
+        (advertisement as any)[key] = updateData[key];
       }
     });
 
-    await productionListing.save();
+    await advertisement.save();
 
     res.json({
       success: true,
-      message: "Üretim ilanı başarıyla güncellendi",
-      data: productionListing,
+      message: "Reklam başarıyla güncellendi",
+      data: advertisement,
     });
   } catch (error: any) {
-    console.error("Error updating production listing:", error);
+    console.error("Error updating advertisement:", error);
     res.status(500).json({
       success: false,
-      message: "Üretim ilanı güncellenemedi",
+      message: "Reklam güncellenemedi",
     });
   }
 });
 
-// DELETE production listing
+// DELETE advertisement
 router.delete("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -327,32 +331,32 @@ router.delete("/:id", async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const productionListing = await ProductionListing.findOneAndDelete({
+    const advertisement = await Advertisement.findOneAndDelete({
       _id: id,
       producer: producer._id,
     });
 
-    if (!productionListing) {
+    if (!advertisement) {
       return res.status(404).json({
         success: false,
-        message: "Üretim ilanı bulunamadı",
+        message: "Reklam bulunamadı",
       });
     }
 
     res.json({
       success: true,
-      message: "Üretim ilanı başarıyla silindi",
+      message: "Reklam başarıyla silindi",
     });
   } catch (error: any) {
-    console.error("Error deleting production listing:", error);
+    console.error("Error deleting advertisement:", error);
     res.status(500).json({
       success: false,
-      message: "Üretim ilanı silinemedi",
+      message: "Reklam silinemedi",
     });
   }
 });
 
-// POST upload cover image for production listing
+// POST upload cover image for advertisement
 router.post(
   "/:id/upload-image",
   uploadImage.single("image"),
@@ -378,21 +382,21 @@ router.post(
         });
       }
 
-      const productionListing = await ProductionListing.findOne({
+      const advertisement = await Advertisement.findOne({
         _id: id,
         producer: producer._id,
       });
 
-      if (!productionListing) {
+      if (!advertisement) {
         return res.status(404).json({
           success: false,
-          message: "Üretim ilanı bulunamadı",
+          message: "Reklam bulunamadı",
         });
       }
 
       // Update cover image URL
-      productionListing.coverImage = (req.file as any).location;
-      await productionListing.save();
+      advertisement.coverImage = (req.file as any).location;
+      await advertisement.save();
 
       res.json({
         success: true,
@@ -411,7 +415,7 @@ router.post(
   }
 );
 
-// POST upload video for production listing
+// POST upload video for advertisement
 router.post(
   "/:id/upload-video",
   uploadVideo.single("video"),
@@ -437,21 +441,21 @@ router.post(
         });
       }
 
-      const productionListing = await ProductionListing.findOne({
+      const advertisement = await Advertisement.findOne({
         _id: id,
         producer: producer._id,
       });
 
-      if (!productionListing) {
+      if (!advertisement) {
         return res.status(404).json({
           success: false,
-          message: "Üretim ilanı bulunamadı",
+          message: "Reklam bulunamadı",
         });
       }
 
       // Update video URL
-      productionListing.videoUrl = (req.file as any).location;
-      await productionListing.save();
+      advertisement.videoUrl = (req.file as any).location;
+      await advertisement.save();
 
       res.json({
         success: true,
@@ -470,7 +474,7 @@ router.post(
   }
 );
 
-// POST upload detail images for production listing
+// POST upload detail images for advertisement
 router.post(
   "/:id/upload-detail-images",
   uploadImage.array("images", 5), // Maksimum 5 resim
@@ -496,15 +500,15 @@ router.post(
         });
       }
 
-      const productionListing = await ProductionListing.findOne({
+      const advertisement = await Advertisement.findOne({
         _id: id,
         producer: producer._id,
       });
 
-      if (!productionListing) {
+      if (!advertisement) {
         return res.status(404).json({
           success: false,
-          message: "Üretim ilanı bulunamadı",
+          message: "Reklam bulunamadı",
         });
       }
 
@@ -512,12 +516,12 @@ router.post(
       const imageUrls = (req.files as any[]).map((file) => file.location);
 
       // Add new images to existing ones
-      productionListing.detailImages = [
-        ...(productionListing.detailImages || []),
+      advertisement.detailImages = [
+        ...(advertisement.detailImages || []),
         ...imageUrls,
       ];
 
-      await productionListing.save();
+      await advertisement.save();
 
       res.json({
         success: true,
@@ -536,7 +540,7 @@ router.post(
   }
 );
 
-// POST upload documents for production listing
+// POST upload documents for advertisement
 router.post(
   "/:id/upload-documents",
   uploadDocument.array("documents", 10), // Maksimum 10 doküman
@@ -562,15 +566,15 @@ router.post(
         });
       }
 
-      const productionListing = await ProductionListing.findOne({
+      const advertisement = await Advertisement.findOne({
         _id: id,
         producer: producer._id,
       });
 
-      if (!productionListing) {
+      if (!advertisement) {
         return res.status(404).json({
           success: false,
-          message: "Üretim ilanı bulunamadı",
+          message: "Reklam bulunamadı",
         });
       }
 
@@ -578,12 +582,12 @@ router.post(
       const documentUrls = (req.files as any[]).map((file) => file.location);
 
       // Add new documents to existing ones
-      productionListing.documents = [
-        ...(productionListing.documents || []),
+      advertisement.documents = [
+        ...(advertisement.documents || []),
         ...documentUrls,
       ];
 
-      await productionListing.save();
+      await advertisement.save();
 
       res.json({
         success: true,

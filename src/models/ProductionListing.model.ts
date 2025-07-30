@@ -11,21 +11,24 @@ export interface IProductionListing {
   subSubCategory?: string;
   location: string;
   type: string;
-  salary: {
+  salary?: {
     min: number;
     max: number;
     currency: string;
   };
-  benefits: string[];
+  benefits?: string[];
   coverImage?: string;
   videoUrl?: string;
   detailImages?: string[];
   documents?: string[];
   technicalDetails?: string;
+  productionQuantity?: string;
   productionTime?: string;
   deliveryTime?: string;
   logisticsModel?: string;
   productionLocation?: string;
+  rawMaterial?: string;
+  productionMethod?: string;
   isActive: boolean;
   applications: Types.ObjectId[];
   createdAt: Date;
@@ -75,12 +78,10 @@ const productionListingSchema = new Schema<IProductionListing & Document>(
     salary: {
       min: {
         type: Number,
-        required: true,
         min: 0,
       },
       max: {
         type: Number,
-        required: true,
         min: 0,
       },
       currency: {
@@ -120,6 +121,10 @@ const productionListingSchema = new Schema<IProductionListing & Document>(
       trim: true,
       maxlength: 800,
     },
+    productionQuantity: {
+      type: String,
+      trim: true,
+    },
     productionTime: {
       type: String,
       trim: true,
@@ -133,6 +138,14 @@ const productionListingSchema = new Schema<IProductionListing & Document>(
       trim: true,
     },
     productionLocation: {
+      type: String,
+      trim: true,
+    },
+    rawMaterial: {
+      type: String,
+      trim: true,
+    },
+    productionMethod: {
       type: String,
       trim: true,
     },

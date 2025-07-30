@@ -12,6 +12,7 @@ import {
   Product,
   ProductionListing,
   ServiceSector,
+  News,
 } from "../models";
 import { ProductionCategory } from "../models/ProductionCategory.model";
 
@@ -86,7 +87,7 @@ router.get("/showcase/:id", async (req, res) => {
       isActive: true,
     })
       .sort({ createdAt: -1 })
-      .limit(3);
+      .limit(6);
 
     // Get producer's services (from service sectors)
     const serviceSectors = await ServiceSector.find({
@@ -118,67 +119,37 @@ router.get("/showcase/:id", async (req, res) => {
       subCategoriesNames = subCategories.map((cat) => cat.name);
     }
 
-    // Get producer's news/announcements (based on real data)
-    const newsItems = [
-      {
-        id: "1",
-        title: storefront.companyName,
-        date: new Date().toLocaleDateString("tr-TR", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        }),
-        headline: `${mainCategoryName} Alanında Yeni Gelişmeler`,
-        description:
-          storefront.companyDescription ||
-          "Şirketimiz sürekli gelişen teknoloji ve müşteri ihtiyaçları doğrultusunda üretim kapasitemizi artırmaya devam ediyoruz.",
-        image:
-          storefront.companyImages?.[0] ||
-          "https://via.placeholder.com/300x200",
-      },
-      {
-        id: "2",
-        title: storefront.companyName,
-        date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString(
-          "tr-TR",
-          {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          }
-        ),
-        headline: `${
-          subCategoriesNames[0] || "Özel Üretim"
-        } Hizmetlerimiz Genişliyor`,
-        description:
-          "Müşterilerimizin özel ihtiyaçlarına yönelik çözümler sunmaya devam ediyoruz. Kaliteli hizmet anlayışımızla sektörde öncü olmaya devam ediyoruz.",
-        image:
-          storefront.companyImages?.[1] ||
-          "https://via.placeholder.com/300x200",
-      },
-      {
-        id: "3",
-        title: storefront.companyName,
-        date: new Date(
-          Date.now() - 14 * 24 * 60 * 60 * 1000
-        ).toLocaleDateString("tr-TR", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        }),
-        headline: `${
-          storefront.deliveryRegions?.[0] || "Türkiye"
-        } Genelinde Hizmet Ağımız`,
-        description: `${
-          storefront.deliveryRegions?.join(", ") || "Türkiye genelinde"
-        } müşterilerimize hızlı ve güvenilir hizmet sunmaya devam ediyoruz. ${
-          storefront.estimatedDeliveryTime || "1-3 iş günü"
-        } içinde teslimat garantisi veriyoruz.`,
-        image:
-          storefront.companyImages?.[2] ||
-          "https://via.placeholder.com/300x200",
-      },
-    ];
+    // Get producer's news/announcements (real data from News collection)
+    const newsItems = await News.find({
+      producer: producer._id,
+      isActive: true,
+      isDeleted: false,
+    })
+      .sort({ createdAt: -1 })
+      .limit(6)
+      .lean();
+
+    // Format news items for frontend
+    const formattedNewsItems = newsItems.map((news) => ({
+      id: news._id.toString(),
+      title: news.title,
+      date: new Date(news.createdAt).toLocaleDateString("tr-TR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }),
+      headline: news.title,
+      description: news.description,
+      image: news.coverImage || "https://via.placeholder.com/300x200",
+      videoUrl: news.videoUrl,
+      detailImages: news.detailImages,
+      category: news.category,
+      subCategory: news.subCategory,
+      subSubCategory: news.subSubCategory,
+      tags: news.tags,
+      views: news.views,
+      likes: news.likes,
+    }));
 
     // Get producer's reviews (based on real data)
     const reviews = [
@@ -244,14 +215,31 @@ router.get("/showcase/:id", async (req, res) => {
       id: listing._id.toString(),
       brand: `${storefront.companyName} | ${listing.category || "Üretim"}`,
       title: listing.title,
+      description: listing.description,
       category: listing.category || mainCategoryName,
-      favorites:
-        storefront.followers?.length || Math.floor(Math.random() * 20) + 5,
-      applications: Math.floor(Math.random() * 50) + 10,
+      subCategory: listing.subCategory,
+      subSubCategory: listing.subSubCategory,
+      type: listing.type,
       location:
+        listing.location ||
         `${storefront.city || ""}, ${storefront.district || ""}`.trim() ||
         "Türkiye",
-      image: "https://via.placeholder.com/300x200",
+      salary: listing.salary,
+      benefits: listing.benefits,
+      coverImage: listing.coverImage || "https://via.placeholder.com/300x200",
+      videoUrl: listing.videoUrl,
+      detailImages: listing.detailImages,
+      technicalDetails: listing.technicalDetails,
+      productionTime: listing.productionTime,
+      deliveryTime: listing.deliveryTime,
+      logisticsModel: listing.logisticsModel,
+      productionLocation: listing.productionLocation,
+      favorites:
+        storefront.followers?.length || Math.floor(Math.random() * 20) + 5,
+      applications:
+        listing.applications?.length || Math.floor(Math.random() * 50) + 10,
+      createdAt: listing.createdAt,
+      updatedAt: listing.updatedAt,
     }));
 
     // Format services for frontend
@@ -302,12 +290,13 @@ router.get("/showcase/:id", async (req, res) => {
         products: formattedProducts,
         productionListings: formattedProductionListings,
         services: formattedServices,
-        newsItems,
+        newsItems: formattedNewsItems,
         reviews,
         stats: {
           totalProducts: products.length,
           totalProductionListings: productionListings.length,
           totalServices: serviceSectors.length,
+          totalNews: newsItems.length,
         },
       },
     });

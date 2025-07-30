@@ -43,5 +43,16 @@ export { TaxOffice, ITaxOffice } from "./TaxOffice.model";
 export { MaterialType, IMaterialType } from "./MaterialType.model";
 export { UsageArea, IUsageArea } from "./UsageArea.model";
 
+// Production Listing Category Models
+export { RawMaterial, IRawMaterial } from "./RawMaterial.model";
+export { ProductionMethod, IProductionMethod } from "./ProductionMethod.model";
+
 // News Model
 export { News, INews } from "./News.model";
+
+// Advertisement Models
+export { Advertisement, IAdvertisement } from "./Advertisement.model";
+export {
+  AdvertisementCategory,
+  IAdvertisementCategory,
+} from "./AdvertisementCategory.model";

@@ -5,6 +5,7 @@ import {
   ProductionCategory,
   InterestCategory,
   ServiceSector,
+  AdvertisementCategory,
 } from "../../models";
 
 const router = express.Router();
@@ -633,6 +634,216 @@ router.delete("/categories/delete-all-by-type", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Kategoriler silinirken hata oluştu",
+    });
+  }
+});
+
+// ==================== ADVERTISEMENT CATEGORIES ====================
+
+// GET all advertisement categories with optional filtering
+router.get("/advertisement-categories", async (req, res) => {
+  try {
+    const { search, isActive, parentCategory } = req.query;
+    let filter: any = { type: "reklam" };
+
+    if (isActive !== undefined) {
+      filter.isActive = isActive === "true";
+    }
+
+    if (search) {
+      filter.name = { $regex: search, $options: "i" };
+    }
+
+    // Alt kategori filtreleme
+    if (parentCategory) {
+      filter.parentCategory = parentCategory;
+    } else {
+      // Sadece ana kategorileri getir (parentCategory olmayan)
+      filter.parentCategory = { $exists: false };
+    }
+
+    const categories = await AdvertisementCategory.find(filter).sort({
+      order: 1,
+      createdAt: -1,
+    });
+    res.json(categories);
+  } catch (error) {
+    console.error("Reklam kategorileri getirilirken hata:", error);
+    res.status(500).json({ message: "Reklam kategorileri getirilemedi" });
+  }
+});
+
+// GET subcategories for a specific parent category
+router.get(
+  "/advertisement-categories/:parentId/subcategories",
+  async (req, res) => {
+    try {
+      const { parentId } = req.params;
+
+      const subcategories = await AdvertisementCategory.find({
+        parentCategory: parentId,
+        type: "reklam",
+      }).sort({ order: 1, name: 1 });
+
+      res.json(subcategories);
+    } catch (error) {
+      console.error("Alt reklam kategorileri getirilirken hata:", error);
+      res.status(500).json({ message: "Alt reklam kategorileri getirilemedi" });
+    }
+  }
+);
+
+// GET sub-subcategories for a specific subcategory
+router.get(
+  "/advertisement-categories/:parentId/subcategories/:subId/sub-subcategories",
+  async (req, res) => {
+    try {
+      const { subId } = req.params;
+
+      const subSubcategories = await AdvertisementCategory.find({
+        parentCategory: subId,
+        type: "reklam",
+      }).sort({ order: 1, name: 1 });
+
+      res.json(subSubcategories);
+    } catch (error) {
+      console.error("Alt-alt reklam kategorileri getirilirken hata:", error);
+      res
+        .status(500)
+        .json({ message: "Alt-alt reklam kategorileri getirilemedi" });
+    }
+  }
+);
+
+// POST create new advertisement category
+router.post("/advertisement-categories", async (req, res) => {
+  try {
+    const {
+      name,
+      parentCategory,
+      description,
+      color,
+      order,
+      isActive = true,
+    } = req.body;
+
+    if (!name) {
+      return res.status(400).json({
+        message: "Kategori adı gereklidir",
+      });
+    }
+
+    const categoryData = {
+      name,
+      type: "reklam",
+      parentCategory,
+      description,
+      color,
+      order: order || 0,
+      isActive,
+    };
+
+    const category = new AdvertisementCategory(categoryData);
+    await category.save();
+
+    res.status(201).json({
+      message: "Reklam kategorisi başarıyla oluşturuldu",
+      category,
+    });
+  } catch (error: any) {
+    console.error("Reklam kategorisi oluşturulurken hata:", error);
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message: "Bu isimde bir reklam kategorisi zaten mevcut",
+      });
+    }
+    res.status(500).json({
+      message: "Reklam kategorisi oluşturulamadı",
+    });
+  }
+});
+
+// PUT update advertisement category
+router.put("/advertisement-categories/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, parentCategory, description, color, order, isActive } =
+      req.body;
+
+    if (!name) {
+      return res.status(400).json({
+        message: "Kategori adı gereklidir",
+      });
+    }
+
+    const updateData = {
+      name,
+      parentCategory,
+      description,
+      color,
+      order,
+      isActive,
+    };
+
+    const category = await AdvertisementCategory.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+
+    if (!category) {
+      return res.status(404).json({ message: "Reklam kategorisi bulunamadı" });
+    }
+
+    res.json({
+      message: "Reklam kategorisi başarıyla güncellendi",
+      category,
+    });
+  } catch (error: any) {
+    console.error("Reklam kategorisi güncellenirken hata:", error);
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message: "Bu isimde bir reklam kategorisi zaten mevcut",
+      });
+    }
+    res.status(500).json({
+      message: "Reklam kategorisi güncellenemedi",
+    });
+  }
+});
+
+// DELETE advertisement category
+router.delete("/advertisement-categories/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const category = await AdvertisementCategory.findByIdAndDelete(id);
+
+    if (!category) {
+      return res.status(404).json({ message: "Reklam kategorisi bulunamadı" });
+    }
+
+    res.json({ message: "Reklam kategorisi başarıyla silindi" });
+  } catch (error) {
+    console.error("Reklam kategorisi silinirken hata:", error);
+    res.status(500).json({ message: "Reklam kategorisi silinemedi" });
+  }
+});
+
+// DELETE all advertisement categories (Admin only)
+router.delete("/advertisement-categories/delete-all", async (req, res) => {
+  try {
+    const result = await AdvertisementCategory.deleteMany({});
+
+    res.json({
+      success: true,
+      message: `Tüm reklam kategorileri başarıyla silindi. Silinen kategori sayısı: ${result.deletedCount}`,
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Tüm reklam kategorileri silinirken hata:", error);
+    res.status(500).json({
+      success: false,
+      message: "Reklam kategorileri silinirken hata oluştu",
     });
   }
 });

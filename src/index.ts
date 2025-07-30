@@ -8,10 +8,15 @@ import adminRoutes from "./routes/admin";
 import producerRoutes from "./routes/producer";
 import productRoutes from "./routes/product";
 import productionListingRoutes from "./routes/productionListing";
+import advertisementRoutes from "./routes/advertisement";
 import newsRoutes from "./routes/news";
 import categoryRoutes from "./routes/admin/categories";
 import materialTypesRoutes from "./routes/admin/materialTypes";
 import usageAreasRoutes from "./routes/admin/usageAreas";
+import rawMaterialsRoutes from "./routes/admin/rawMaterials";
+import productionMethodsRoutes from "./routes/admin/productionMethods";
+import publicRawMaterialsRoutes from "./routes/rawMaterials";
+import publicProductionMethodsRoutes from "./routes/productionMethods";
 import s3Client from "./config/s3";
 import { ListBucketsCommand } from "@aws-sdk/client-s3";
 
@@ -103,10 +108,15 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/producer", producerRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/production-listings", productionListingRoutes);
+app.use("/api/advertisements", advertisementRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/admin/categories", categoryRoutes);
 app.use("/api/admin/material-types", materialTypesRoutes);
 app.use("/api/admin/usage-areas", usageAreasRoutes);
+app.use("/api/admin/raw-materials", rawMaterialsRoutes);
+app.use("/api/admin/production-methods", productionMethodsRoutes);
+app.use("/api/raw-materials", publicRawMaterialsRoutes);
+app.use("/api/production-methods", publicProductionMethodsRoutes);
 
 // Start server
 app.listen(PORT, () => {
