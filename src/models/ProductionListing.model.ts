@@ -29,6 +29,7 @@ export interface IProductionListing {
   productionLocation?: string;
   rawMaterial?: string;
   productionMethod?: string;
+  productionCategory?: string;
   isActive: boolean;
   applications: Types.ObjectId[];
   createdAt: Date;
@@ -146,6 +147,10 @@ const productionListingSchema = new Schema<IProductionListing & Document>(
       trim: true,
     },
     productionMethod: {
+      type: String,
+      trim: true,
+    },
+    productionCategory: {
       type: String,
       trim: true,
     },

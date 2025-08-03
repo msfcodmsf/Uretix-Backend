@@ -6,8 +6,29 @@ import { authenticateToken } from "../middleware/auth";
 import { requireProducer } from "../middleware/roleAuth";
 import { Producer } from "../models/Producer.model";
 import { Advertisement } from "../models/Advertisement.model";
+import { AdvertisementCategory } from "../models/AdvertisementCategory.model";
 
 const router = express.Router();
+
+// Public route to get advertisement categories
+router.get("/categories", async (req: Request, res: Response) => {
+  try {
+    const categories = await AdvertisementCategory.find({ isActive: true })
+      .sort({ order: 1, name: 1 })
+      .lean();
+
+    res.json({
+      success: true,
+      data: categories,
+    });
+  } catch (error: any) {
+    console.error("Error fetching advertisement categories:", error);
+    res.status(500).json({
+      success: false,
+      message: "Reklam kategorileri getirilemedi",
+    });
+  }
+});
 
 // S3 Configuration
 const s3Client = new S3Client({

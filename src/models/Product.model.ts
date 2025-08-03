@@ -12,8 +12,7 @@ export interface IProduct {
   price: number;
   originalPrice?: number;
   currency: string;
-  unit: string;
-  minimumOrderQuantity: number;
+
   inStock?: boolean;
   maximumOrderQuantity?: number;
   availableQuantity: number;
@@ -34,6 +33,7 @@ export interface IProduct {
     depth: number;
   };
   weight: number;
+  weightUnit: string;
   estimatedDeliveryTime: string;
   shippingMethod: string;
   nonDeliveryRegions: string[];
@@ -41,7 +41,7 @@ export interface IProduct {
     quantityRange: string;
     discountPercentage: number;
   }>;
-  specifications: Record<string, any>;
+  specifications?: Record<string, any>;
   tags: string[];
   isActive: boolean;
   isFeatured: boolean;
@@ -99,16 +99,7 @@ const productSchema = new Schema<IProduct & Document>(
       default: "TL",
       enum: ["TL", "USD", "EUR"],
     },
-    unit: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    minimumOrderQuantity: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
+
     inStock: {
       type: Boolean,
       default: true,
@@ -196,6 +187,11 @@ const productSchema = new Schema<IProduct & Document>(
       type: Number,
       required: true,
       min: 0,
+    },
+    weightUnit: {
+      type: String,
+      default: "kg",
+      enum: ["kg", "g", "lb", "oz"],
     },
     estimatedDeliveryTime: {
       type: String,

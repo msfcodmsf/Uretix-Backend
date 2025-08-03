@@ -27,7 +27,7 @@ export { MaterialOffer } from "./MaterialOffer.model";
 
 // Category Models
 export {
-  ProductionCategory,
+  default as ProductionCategory,
   IProductionCategory,
 } from "./ProductionCategory.model";
 
@@ -56,3 +56,12 @@ export {
   AdvertisementCategory,
   IAdvertisementCategory,
 } from "./AdvertisementCategory.model";
+
+// Service Models
+export { default as Service, IService } from "./Service.model";
+
+// Surface Treatment Model
+export {
+  default as SurfaceTreatment,
+  ISurfaceTreatment,
+} from "./SurfaceTreatment.model";

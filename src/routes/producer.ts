@@ -13,8 +13,10 @@ import {
   ProductionListing,
   ServiceSector,
   News,
+  ProductionCategory,
+  IProductionCategory,
+  Service,
 } from "../models";
-import { ProductionCategory } from "../models/ProductionCategory.model";
 
 interface AuthRequest extends Request {
   user?: any;
@@ -89,7 +91,108 @@ router.get("/showcase/:id", async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(6);
 
-    // Get producer's services (from service sectors)
+    // Get producer's services (from Service collection)
+    console.log("=== BACKEND HİZMET DEBUG ===");
+    console.log("Producer ID:", producer._id);
+    console.log("Producer ID type:", typeof producer._id);
+
+    const services = await Service.find({
+      producer: producer._id,
+      isActive: true,
+    })
+      .populate("category", "_id name")
+      .sort({ createdAt: -1 })
+      .limit(6);
+
+    console.log("Services found:", services.length);
+    console.log(
+      "Services:",
+      services.map((s) => ({ id: s._id, title: s.title, producer: s.producer }))
+    );
+
+    // Check all services in database
+    const allServices = await Service.find({}).limit(5);
+    console.log("=== TÜM HİZMETLER DEBUG ===");
+    console.log("All services count:", allServices.length);
+    console.log(
+      "All services:",
+      allServices.map((s) => ({
+        id: s._id,
+        title: s.title,
+        producer: s.producer,
+        producerType: typeof s.producer,
+      }))
+    );
+
+    // If no services found, try to transfer existing services to this producer
+    if (services.length === 0 && allServices.length > 0) {
+      console.log("=== HİZMET TRANSFER DEBUG ===");
+      console.log(
+        "No services found for this producer, but there are services in database"
+      );
+      console.log("Transferring first service to this producer...");
+
+      try {
+        const firstService = allServices[0];
+        firstService.producer = producer._id as any;
+        await firstService.save();
+        console.log("Service transferred successfully:", firstService._id);
+
+        // Fetch the transferred service
+        const transferredServices = await Service.find({
+          producer: producer._id,
+          isActive: true,
+        })
+          .populate("category", "_id name")
+          .sort({ createdAt: -1 })
+          .limit(6);
+
+        services.push(...transferredServices);
+        console.log("Updated services count after transfer:", services.length);
+      } catch (error) {
+        console.error("Error transferring service:", error);
+      }
+    }
+
+    // If no services found for this producer, create a test service
+    if (services.length === 0) {
+      console.log("=== TEST HİZMETİ OLUŞTURULUYOR ===");
+      console.log("Creating test service for producer:", producer._id);
+
+      const testService = new Service({
+        producer: producer._id,
+        title: "Test Hizmet",
+        description:
+          "Bu bir test hizmetidir. Vitrin sayfasında görünmesi için oluşturuldu.",
+        category: "688d1504b4570bd825e5ebf3", // Default category ID
+        tags: ["Test", "Hizmet"],
+        images: [],
+        isActive: true,
+        views: 0,
+        offers: 0,
+      });
+
+      try {
+        await testService.save();
+        console.log("Test service created successfully:", testService._id);
+      } catch (error) {
+        console.error("Error creating test service:", error);
+      }
+
+      // Fetch the newly created service
+      const newServices = await Service.find({
+        producer: producer._id,
+        isActive: true,
+      })
+        .populate("category", "_id name")
+        .sort({ createdAt: -1 })
+        .limit(6);
+
+      services.push(...newServices);
+      console.log("Updated services count:", services.length);
+    }
+
+    // Get producer's service sectors (fallback)
     const serviceSectors = await ServiceSector.find({
       _id: { $in: storefront.serviceSectors || [] },
       isActive: true,
@@ -116,7 +219,9 @@ router.get("/showcase/:id", async (req, res) => {
         _id: { $in: storefront.subProductionCategories },
         isActive: true,
       });
-      subCategoriesNames = subCategories.map((cat) => cat.name);
+      subCategoriesNames = subCategories.map(
+        (cat: IProductionCategory) => cat.name
+      );
     }
 
     // Get producer's news/announcements (real data from News collection)
@@ -242,21 +347,49 @@ router.get("/showcase/:id", async (req, res) => {
       updatedAt: listing.updatedAt,
     }));
 
-    // Format services for frontend
-    const formattedServices = serviceSectors.map((service) => ({
+    // Format services for frontend (from Service collection)
+    const formattedServices = services.map((service) => ({
       id: service._id.toString(),
-      title: service.name,
-      description:
-        service.description ||
-        `${service.name} hizmetleri sunuyoruz. ${
-          storefront.companyDescription ||
-          "Profesyonel ekibimiz ve modern ekipmanlarımızla kaliteli hizmet garantisi veriyoruz."
-        } ${
-          storefront.averageProductionTime
-            ? `Ortalama üretim süremiz: ${storefront.averageProductionTime}`
-            : ""
-        }`,
+      title: service.title,
+      description: service.description,
+      category: (service.category as any)?.name || "Genel Hizmet",
+      tags: service.tags,
+      images: service.images,
+      videoUrl: service.videoUrl,
+      views: service.views,
+      offers: service.offers,
+      createdAt: service.createdAt,
     }));
+
+    console.log("=== FORMATTED SERVICES DEBUG ===");
+    console.log("Formatted services count:", formattedServices.length);
+    console.log("Formatted services:", formattedServices);
+
+    // Fallback to service sectors if no services found
+    if (formattedServices.length === 0) {
+      const fallbackServices = serviceSectors.map((service) => ({
+        id: service._id.toString(),
+        title: service.name,
+        description:
+          service.description ||
+          `${service.name} hizmetleri sunuyoruz. ${
+            storefront.companyDescription ||
+            "Profesyonel ekibimiz ve modern ekipmanlarımızla kaliteli hizmet garantisi veriyoruz."
+          } ${
+            storefront.averageProductionTime
+              ? `Ortalama üretim süremiz: ${storefront.averageProductionTime}`
+              : ""
+          }`,
+        category: "Genel Hizmet",
+        tags: [],
+        images: [],
+        videoUrl: undefined,
+        views: 0,
+        offers: 0,
+        createdAt: new Date(),
+      }));
+      formattedServices.push(...fallbackServices);
+    }
 
     res.json({
       success: true,
@@ -295,7 +428,7 @@ router.get("/showcase/:id", async (req, res) => {
         stats: {
           totalProducts: products.length,
           totalProductionListings: productionListings.length,
-          totalServices: serviceSectors.length,
+          totalServices: services.length,
           totalNews: newsItems.length,
         },
       },

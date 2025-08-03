@@ -1,58 +1,55 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
-export interface IProductionCategory {
-  _id: string;
-  id: string; // Virtual property for _id
+export interface IProductionCategory extends Document {
   name: string;
-  type: "vitrin" | "hizmet" | "ilgi" | "diger";
-  vitrinCategory?: "uretim" | "kargo" | "ilgi";
-  parentCategory?: string; // Ana kategori ID'si (alt kategoriler için)
+  description?: string;
+  type: "surface_treatment" | "laser_logo" | "other" | "vitrin";
+  vitrinCategory?: "uretim" | "hizmet" | "urun";
+  parentCategory?: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const productionCategorySchema = new Schema<IProductionCategory & Document>(
+const productionCategorySchema = new Schema<IProductionCategory>(
   {
     name: {
       type: String,
       required: true,
       trim: true,
-      maxlength: 100,
+    },
+    description: {
+      type: String,
+      trim: true,
     },
     type: {
       type: String,
       required: true,
-      enum: ["vitrin", "hizmet", "ilgi", "diger"],
-      default: "vitrin",
+      enum: ["surface_treatment", "laser_logo", "other", "vitrin"],
+      default: "other",
     },
     vitrinCategory: {
       type: String,
-      enum: ["uretim", "kargo", "ilgi"],
-      required: function () {
-        return this.type === "vitrin";
-      },
+      enum: ["uretim", "hizmet", "urun"],
     },
     parentCategory: {
-      type: String,
+      type: Schema.Types.ObjectId,
       ref: "ProductionCategory",
-      required: function () {
-        // Sadece vitrinCategory "uretim" olan ve parentCategory değeri olan kategoriler için zorunlu
-        return (
-          this.type === "vitrin" &&
-          this.vitrinCategory === "uretim" &&
-          this.parentCategory
-        );
-      },
     },
-    isActive: { type: Boolean, default: true },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-// Compound unique index for name and type
-productionCategorySchema.index({ name: 1, type: 1 }, { unique: true });
+// Index for better query performance
+productionCategorySchema.index({ type: 1, isActive: 1 });
 
-export const ProductionCategory = mongoose.model<
-  IProductionCategory & Document
->("ProductionCategory", productionCategorySchema);
+export default mongoose.model<IProductionCategory>(
+  "ProductionCategory",
+  productionCategorySchema
+);

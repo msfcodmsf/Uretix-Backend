@@ -1,10 +1,11 @@
 import { Router, Request, Response } from "express";
 import { User, UserRole } from "../models/User.model";
 import { Producer } from "../models/Producer.model";
-import { ProductionCategory } from "../models/ProductionCategory.model";
+import ProductionCategory from "../models/ProductionCategory.model";
 import { TaxOffice } from "../models/TaxOffice.model";
 import { authenticateToken } from "../middleware/auth";
 import { requireAdmin, requireSuperAdmin } from "../middleware/roleAuth";
+import surfaceTreatmentsRouter from "./admin/surfaceTreatments";
 
 const router = Router();
 
@@ -715,5 +716,8 @@ router.put(
     }
   }
 );
+
+// Surface Treatments routes
+router.use("/surface-treatments", surfaceTreatmentsRouter);
 
 export default router;

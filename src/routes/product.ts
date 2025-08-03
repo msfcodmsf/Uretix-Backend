@@ -28,10 +28,15 @@ const s3Client = new S3Client({
 
 const router = express.Router();
 
-// GET product categories
+// GET product categories (ana kategoriler - parentCategory olmayan)
 router.get("/categories", async (req: Request, res: Response) => {
   try {
-    const categories = await ProductionCategory.find({ isActive: true }).sort({
+    const categories = await ProductionCategory.find({
+      isActive: true,
+      type: "vitrin",
+      vitrinCategory: "uretim",
+      parentCategory: { $exists: false },
+    }).sort({
       name: 1,
     });
 
@@ -58,6 +63,8 @@ router.get(
       const subCategories = await ProductionCategory.find({
         parentCategory: parentId,
         isActive: true,
+        type: "vitrin",
+        vitrinCategory: "uretim",
       }).sort({
         name: 1,
       });
@@ -221,8 +228,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       "category",
       "subCategory",
       "price",
-      "unit",
-      "minimumOrderQuantity",
+
       "availableQuantity",
       "materialType",
       "dimensions",
@@ -714,6 +720,82 @@ router.post("/:id/video", async (req: AuthRequest, res: Response) => {
       });
     }
   });
+});
+
+// DELETE product image
+router.delete("/:id/images", async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    const { imageUrl, imageType } = req.body; // imageType: 'cover', 'detail', 'video'
+
+    // Find producer by user ID
+    const producer = await Producer.findOne({ user: userId });
+
+    if (!producer) {
+      return res.status(404).json({
+        success: false,
+        message: "Producer bulunamadı",
+      });
+    }
+
+    const product = await Product.findOne({
+      _id: id,
+      producer: producer._id,
+    });
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Ürün bulunamadı",
+      });
+    }
+
+    // S3'ten dosyayı sil
+    try {
+      if (imageUrl) {
+        const fileKey = imageUrl.split("/").pop();
+        if (fileKey) {
+          let s3Key = "";
+          if (imageType === "cover") {
+            s3Key = `products/cover-images/${fileKey}`;
+          } else if (imageType === "detail") {
+            s3Key = `products/detail-images/${fileKey}`;
+          } else if (imageType === "video") {
+            s3Key = `products/videos/${fileKey}`;
+          }
+
+          if (s3Key) {
+            await deleteFromS3(s3Key);
+          }
+        }
+      }
+    } catch (deleteError) {
+      console.error("Dosya silinirken hata:", deleteError);
+    }
+
+    // Veritabanından kaldır
+    if (imageType === "cover") {
+      product.coverImage = "";
+    } else if (imageType === "detail") {
+      product.images = product.images.filter((img: string) => img !== imageUrl);
+    } else if (imageType === "video") {
+      product.videoUrl = "";
+    }
+
+    await product.save();
+
+    res.json({
+      success: true,
+      message: "Dosya başarıyla silindi",
+    });
+  } catch (error: any) {
+    console.error("Dosya silme hatası:", error);
+    res.status(500).json({
+      success: false,
+      message: "Dosya silinirken hata oluştu",
+    });
+  }
 });
 
 export default router;
