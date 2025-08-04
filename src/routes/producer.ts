@@ -92,10 +92,6 @@ router.get("/showcase/:id", async (req, res) => {
       .limit(6);
 
     // Get producer's services (from Service collection)
-    console.log("=== BACKEND HİZMET DEBUG ===");
-    console.log("Producer ID:", producer._id);
-    console.log("Producer ID type:", typeof producer._id);
-
     const services = await Service.find({
       producer: producer._id,
       isActive: true,
@@ -104,39 +100,15 @@ router.get("/showcase/:id", async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(6);
 
-    console.log("Services found:", services.length);
-    console.log(
-      "Services:",
-      services.map((s) => ({ id: s._id, title: s.title, producer: s.producer }))
-    );
-
     // Check all services in database
     const allServices = await Service.find({}).limit(5);
-    console.log("=== TÜM HİZMETLER DEBUG ===");
-    console.log("All services count:", allServices.length);
-    console.log(
-      "All services:",
-      allServices.map((s) => ({
-        id: s._id,
-        title: s.title,
-        producer: s.producer,
-        producerType: typeof s.producer,
-      }))
-    );
 
     // If no services found, try to transfer existing services to this producer
     if (services.length === 0 && allServices.length > 0) {
-      console.log("=== HİZMET TRANSFER DEBUG ===");
-      console.log(
-        "No services found for this producer, but there are services in database"
-      );
-      console.log("Transferring first service to this producer...");
-
       try {
         const firstService = allServices[0];
         firstService.producer = producer._id as any;
         await firstService.save();
-        console.log("Service transferred successfully:", firstService._id);
 
         // Fetch the transferred service
         const transferredServices = await Service.find({
@@ -148,7 +120,6 @@ router.get("/showcase/:id", async (req, res) => {
           .limit(6);
 
         services.push(...transferredServices);
-        console.log("Updated services count after transfer:", services.length);
       } catch (error) {
         console.error("Error transferring service:", error);
       }
@@ -156,9 +127,6 @@ router.get("/showcase/:id", async (req, res) => {
 
     // If no services found for this producer, create a test service
     if (services.length === 0) {
-      console.log("=== TEST HİZMETİ OLUŞTURULUYOR ===");
-      console.log("Creating test service for producer:", producer._id);
-
       const testService = new Service({
         producer: producer._id,
         title: "Test Hizmet",
@@ -174,7 +142,6 @@ router.get("/showcase/:id", async (req, res) => {
 
       try {
         await testService.save();
-        console.log("Test service created successfully:", testService._id);
       } catch (error) {
         console.error("Error creating test service:", error);
       }
@@ -189,7 +156,6 @@ router.get("/showcase/:id", async (req, res) => {
         .limit(6);
 
       services.push(...newServices);
-      console.log("Updated services count:", services.length);
     }
 
     // Get producer's service sectors (fallback)
@@ -360,10 +326,6 @@ router.get("/showcase/:id", async (req, res) => {
       offers: service.offers,
       createdAt: service.createdAt,
     }));
-
-    console.log("=== FORMATTED SERVICES DEBUG ===");
-    console.log("Formatted services count:", formattedServices.length);
-    console.log("Formatted services:", formattedServices);
 
     // Fallback to service sectors if no services found
     if (formattedServices.length === 0) {

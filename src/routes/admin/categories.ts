@@ -727,24 +727,43 @@ router.post("/advertisement-categories", async (req, res) => {
       isActive = true,
     } = req.body;
 
+    console.log("=== REKLAM KATEGORİSİ OLUŞTURMA ===");
+    console.log("Request body:", req.body);
+    console.log("Parent category:", parentCategory);
+
     if (!name) {
       return res.status(400).json({
         message: "Kategori adı gereklidir",
       });
     }
 
+    // Parent category validation
+    if (parentCategory) {
+      const parentCat = await AdvertisementCategory.findById(parentCategory);
+      if (!parentCat) {
+        return res.status(400).json({ message: "Ana kategori bulunamadı" });
+      }
+      console.log("Parent category found:", parentCat.name);
+    } else {
+      console.log("No parent category - creating main category");
+    }
+
     const categoryData = {
       name,
       type: "reklam",
-      parentCategory,
+      parentCategory: parentCategory || undefined,
       description,
       color,
       order: order || 0,
       isActive,
     };
 
+    console.log("Category data to save:", categoryData);
+
     const category = new AdvertisementCategory(categoryData);
     await category.save();
+
+    console.log("Category saved successfully:", category);
 
     res.status(201).json({
       message: "Reklam kategorisi başarıyla oluşturuldu",
