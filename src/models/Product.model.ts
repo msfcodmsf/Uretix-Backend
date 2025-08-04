@@ -9,9 +9,6 @@ export interface IProduct {
   description: string;
   category: string;
   subCategory: string;
-  price: number;
-  originalPrice?: number;
-  currency: string;
 
   inStock?: boolean;
   maximumOrderQuantity?: number;
@@ -84,20 +81,6 @@ const productSchema = new Schema<IProduct & Document>(
       type: String,
       required: true,
       trim: true,
-    },
-    price: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    originalPrice: {
-      type: Number,
-      min: 0,
-    },
-    currency: {
-      type: String,
-      default: "TL",
-      enum: ["TL", "USD", "EUR"],
     },
 
     inStock: {

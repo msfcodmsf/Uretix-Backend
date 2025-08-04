@@ -83,6 +83,36 @@ router.get(
   }
 );
 
+// GET sub-sub categories for a specific sub category
+router.get(
+  "/categories/:subId/sub-subcategories",
+  async (req: Request, res: Response) => {
+    try {
+      const { subId } = req.params;
+
+      const subSubCategories = await ProductionCategory.find({
+        parentCategory: subId,
+        isActive: true,
+        type: "vitrin",
+        vitrinCategory: "uretim",
+      }).sort({
+        name: 1,
+      });
+
+      res.json({
+        success: true,
+        data: subSubCategories,
+      });
+    } catch (error) {
+      console.error("Error fetching sub-sub categories:", error);
+      res.status(500).json({
+        success: false,
+        message: "Alt-alt kategoriler getirilemedi",
+      });
+    }
+  }
+);
+
 // GET material types
 router.get("/material-types", async (req: Request, res: Response) => {
   try {
@@ -227,8 +257,6 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       "description",
       "category",
       "subCategory",
-      "price",
-
       "availableQuantity",
       "materialType",
       "dimensions",

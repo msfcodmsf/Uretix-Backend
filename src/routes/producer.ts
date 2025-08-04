@@ -264,8 +264,7 @@ router.get("/showcase/:id", async (req, res) => {
       name: product.name,
       brand: storefront.companyName,
       category: product.category || mainCategoryName,
-      price: product.price || 0,
-      originalPrice: product.originalPrice || product.price || 0,
+
       rating: storefront.rating || 4.5,
       favorites:
         storefront.followers?.length || Math.floor(Math.random() * 20) + 5,
