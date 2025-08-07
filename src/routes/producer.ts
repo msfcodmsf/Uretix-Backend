@@ -16,6 +16,7 @@ import {
   ProductionCategory,
   IProductionCategory,
   Service,
+  Advertisement,
 } from "../models";
 
 interface AuthRequest extends Request {
@@ -34,6 +35,42 @@ const s3Client = new S3Client({
 const router = express.Router();
 
 // Public endpoints (no authentication required)
+
+// Test endpoint to create advertisement (for development only)
+router.post("/test-advertisement/:producerId", async (req, res) => {
+  try {
+    const { producerId } = req.params;
+
+    const testAdvertisement = new Advertisement({
+      producer: producerId,
+      title: "Yeni Üretim Altyapısı",
+      description: "Kısa Ve Net Açıklama",
+      category: "Üretim",
+      subCategory: "Endüstriyel",
+      videoUrl: "https://example.com/video1.mp4",
+      coverImage: "https://via.placeholder.com/400x300",
+      tags: ["üretim", "altyapı", "teknoloji"],
+      isActive: true,
+      views: 0,
+      clicks: 0,
+    });
+
+    await testAdvertisement.save();
+
+    res.json({
+      success: true,
+      message: "Test advertisement oluşturuldu",
+      data: testAdvertisement,
+    });
+  } catch (error) {
+    console.error("Error creating test advertisement:", error);
+    res.status(500).json({
+      success: false,
+      message: "Test advertisement oluşturulamadı",
+    });
+  }
+});
+
 // Get producer showcase/vitrin data by ID (public endpoint - no auth required)
 router.get("/showcase/:id", async (req, res) => {
   try {
@@ -78,10 +115,6 @@ router.get("/showcase/:id", async (req, res) => {
     })
       .sort({ createdAt: -1 })
       .limit(6);
-
-    console.log("Producer ID:", producer._id); // Debug log
-    console.log("Products found:", products.length); // Debug log
-    console.log("Products:", products); // Debug log
 
     // Get producer's production listings
     const productionListings = await ProductionListing.find({
@@ -222,6 +255,25 @@ router.get("/showcase/:id", async (req, res) => {
       likes: news.likes,
     }));
 
+    // Get producer's advertisements (real data from Advertisement collection)
+    const advertisements = await Advertisement.find({
+      producer: producer._id,
+      isActive: true,
+    })
+      .sort({ createdAt: -1 })
+      .limit(6)
+      .lean();
+
+    // Format advertisements for frontend
+    const formattedAdvertisements = advertisements.map((advertisement) => ({
+      id: advertisement._id.toString(),
+      title: advertisement.title,
+      description: advertisement.description,
+      date: advertisement.createdAt.toISOString(), // ISO string formatında gönder
+      videoUrl: advertisement.videoUrl,
+      coverImage: advertisement.coverImage,
+    }));
+
     // Get producer's reviews (based on real data)
     const reviews = [
       {
@@ -259,26 +311,32 @@ router.get("/showcase/:id", async (req, res) => {
     ];
 
     // Format products for frontend
-    const formattedProducts = products.map((product) => ({
-      id: product._id.toString(),
-      name: product.name,
-      brand: storefront.companyName,
-      category: product.category || mainCategoryName,
+    const formattedProducts = products.map((product) => {
+      // İlk varyantın fiyatını al
+      const firstVariant = product.productVariants?.[0];
+      const price = firstVariant?.price || 0;
 
-      rating: storefront.rating || 4.5,
-      favorites:
-        storefront.followers?.length || Math.floor(Math.random() * 20) + 5,
-      location:
-        `${storefront.city || ""}, ${storefront.district || ""}`.trim() ||
-        "Türkiye",
-      inStock: product.inStock || true,
-      fastDelivery: storefront.estimatedDeliveryTime
-        ? storefront.estimatedDeliveryTime.includes("1-3")
-        : true,
-      minOrder: "Min. Sipariş Adedi",
-      image: product.images?.[0] || "https://via.placeholder.com/300x200",
-      video: product.videoUrl || null,
-    }));
+      return {
+        id: product._id.toString(),
+        name: product.name,
+        brand: storefront.companyName,
+        category: product.category || mainCategoryName,
+        price: price,
+        originalPrice: price, // Aynı fiyat
+        rating: storefront.rating || 0,
+        reviewCount: product.totalComments || 0,
+        favorites: storefront.followers?.length || 0,
+        location:
+          `${storefront.city || ""}, ${storefront.district || ""}`.trim() ||
+          "Türkiye",
+        inStock: product.inStock || true,
+        fastDelivery: storefront.estimatedDeliveryTime
+          ? storefront.estimatedDeliveryTime.includes("1-3")
+          : true,
+        image: product.images?.[0] || "https://via.placeholder.com/300x200",
+        video: product.videoUrl || null,
+      };
+    });
 
     // Format production listings for frontend
     const formattedProductionListings = productionListings.map((listing) => ({
@@ -304,10 +362,8 @@ router.get("/showcase/:id", async (req, res) => {
       deliveryTime: listing.deliveryTime,
       logisticsModel: listing.logisticsModel,
       productionLocation: listing.productionLocation,
-      favorites:
-        storefront.followers?.length || Math.floor(Math.random() * 20) + 5,
-      applications:
-        listing.applications?.length || Math.floor(Math.random() * 50) + 10,
+      favorites: storefront.followers?.length || 0,
+      applications: listing.applications?.length || 0,
       createdAt: listing.createdAt,
       updatedAt: listing.updatedAt,
     }));
@@ -385,12 +441,14 @@ router.get("/showcase/:id", async (req, res) => {
         productionListings: formattedProductionListings,
         services: formattedServices,
         newsItems: formattedNewsItems,
+        advertisements: formattedAdvertisements,
         reviews,
         stats: {
           totalProducts: products.length,
           totalProductionListings: productionListings.length,
           totalServices: services.length,
           totalNews: newsItems.length,
+          totalAdvertisements: advertisements.length,
         },
       },
     });

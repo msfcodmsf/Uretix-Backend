@@ -161,6 +161,103 @@ router.post("/register/my-dashboard", async (req: Request, res: Response) => {
   }
 });
 
+// Üretici kaydı (alternatif endpoint)
+router.post("/register/producer", async (req: Request, res: Response) => {
+  try {
+    const {
+      email,
+      password,
+      firstName,
+      lastName,
+      companyName,
+      taxIdNumber,
+      phoneNumber,
+      acceptClarificationText,
+      acceptElectronicMessage,
+    } = req.body;
+
+    // Onay kontrolleri
+    if (!acceptClarificationText || !acceptElectronicMessage) {
+      return res.status(400).json({
+        message: "Aydınlatma metni ve elektronik ileti onayları zorunludur",
+      });
+    }
+
+    // Zorunlu alanlar kontrolü
+    if (!companyName || !taxIdNumber) {
+      return res.status(400).json({
+        message: "Şirket adı ve vergi kimlik numarası zorunludur",
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        message: "Bu email adresi zaten kullanılıyor",
+      });
+    }
+
+    // Check if tax ID already exists
+    const existingProducer = await Producer.findOne({ taxIdNumber });
+    if (existingProducer) {
+      return res.status(400).json({
+        message: "Bu vergi kimlik numarası zaten kullanılıyor",
+      });
+    }
+
+    // Create new user with producer role
+    const user = new User({
+      email,
+      password,
+      firstName,
+      lastName,
+      role: "producer",
+      acceptClarificationText,
+      acceptElectronicMessage,
+    });
+
+    await user.save();
+
+    // Create producer profile
+    const producer = new Producer({
+      user: user._id,
+      companyName,
+      taxIdNumber,
+      phoneNumber,
+    });
+
+    await producer.save();
+
+    // Generate token
+    const token = generateToken(user._id.toString());
+
+    const response = {
+      message: "Üretici başarıyla oluşturuldu",
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
+      producer: {
+        id: producer._id,
+        companyName: producer.companyName,
+        taxIdNumber: producer.taxIdNumber,
+        phoneNumber: producer.phoneNumber,
+        isVerified: producer.isVerified,
+      },
+    };
+
+    res.status(201).json(response);
+  } catch (error: unknown) {
+    console.error("Producer registration error:", error);
+    res.status(500).json({ message: "Sunucu hatası", error: String(error) });
+  }
+});
+
 // Login (hem kullanıcı hem üretici için)
 router.post("/login", async (req: Request, res: Response) => {
   try {

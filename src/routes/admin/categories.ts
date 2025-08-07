@@ -545,17 +545,52 @@ router.delete("/production-categories/delete-all", async (req, res) => {
   }
 });
 
-// DELETE production category (hard delete)
+// DELETE production category (hard delete) with cascading delete
 router.delete("/production-categories/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const category = await ProductionCategory.findByIdAndDelete(id);
 
+    // Önce kategoriyi bul
+    const category = await ProductionCategory.findById(id);
     if (!category) {
       return res.status(404).json({ message: "Kategori bulunamadı" });
     }
 
-    res.json({ message: "Kategori başarıyla silindi" });
+    // Alt kategorileri (subcategories) bul ve sil
+    const subcategories = await ProductionCategory.find({ parentCategory: id });
+    const subcategoryIds = subcategories.map((sub) => sub._id);
+
+    // Alt-alt kategorileri (sub-subcategories) bul ve sil
+    const subSubcategories = await ProductionCategory.find({
+      parentCategory: { $in: subcategoryIds },
+    });
+
+    // Tüm alt-alt kategorileri sil
+    if (subSubcategories.length > 0) {
+      await ProductionCategory.deleteMany({
+        parentCategory: { $in: subcategoryIds },
+      });
+    }
+
+    // Tüm alt kategorileri sil
+    if (subcategories.length > 0) {
+      await ProductionCategory.deleteMany({ parentCategory: id });
+    }
+
+    // Ana kategoriyi sil
+    await ProductionCategory.findByIdAndDelete(id);
+
+    const totalDeleted = 1 + subcategories.length + subSubcategories.length;
+
+    res.json({
+      message: `Kategori ve ${
+        totalDeleted - 1
+      } alt kategorisi başarıyla silindi`,
+      deletedCount: totalDeleted,
+      mainCategory: category.name,
+      subcategoriesDeleted: subcategories.length,
+      subSubcategoriesDeleted: subSubcategories.length,
+    });
   } catch (error) {
     console.error("Kategori silinirken hata:", error);
     res.status(500).json({ message: "Kategori silinemedi" });
@@ -831,17 +866,38 @@ router.put("/advertisement-categories/:id", async (req, res) => {
   }
 });
 
-// DELETE advertisement category
+// DELETE advertisement category with cascading delete
 router.delete("/advertisement-categories/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const category = await AdvertisementCategory.findByIdAndDelete(id);
 
+    // Önce kategoriyi bul
+    const category = await AdvertisementCategory.findById(id);
     if (!category) {
       return res.status(404).json({ message: "Reklam kategorisi bulunamadı" });
     }
 
-    res.json({ message: "Reklam kategorisi başarıyla silindi" });
+    // Alt kategorileri bul ve sil
+    const subcategories = await AdvertisementCategory.find({
+      parentCategory: id,
+    });
+
+    // Tüm alt kategorileri sil
+    if (subcategories.length > 0) {
+      await AdvertisementCategory.deleteMany({ parentCategory: id });
+    }
+
+    // Ana kategoriyi sil
+    await AdvertisementCategory.findByIdAndDelete(id);
+
+    const totalDeleted = 1 + subcategories.length;
+
+    res.json({
+      message: `Reklam kategorisi ve ${subcategories.length} alt kategorisi başarıyla silindi`,
+      deletedCount: totalDeleted,
+      mainCategory: category.name,
+      subcategoriesDeleted: subcategories.length,
+    });
   } catch (error) {
     console.error("Reklam kategorisi silinirken hata:", error);
     res.status(500).json({ message: "Reklam kategorisi silinemedi" });

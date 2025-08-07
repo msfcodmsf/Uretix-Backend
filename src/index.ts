@@ -20,8 +20,11 @@ import productionCategoryRoutes from "./routes/productionCategory";
 import publicRawMaterialsRoutes from "./routes/rawMaterials";
 import publicProductionMethodsRoutes from "./routes/productionMethods";
 import surfaceTreatmentsRoutes from "./routes/surfaceTreatments";
+import productInteractionsRoutes from "./routes/productInteractions";
+import productionOffersRoutes from "./routes/productionOffers";
 import s3Client from "./config/s3";
 import { ListBucketsCommand } from "@aws-sdk/client-s3";
+import ProductAutoDeactivationService from "./services/productAutoDeactivationService";
 
 // Environment variables
 dotenv.config();
@@ -123,8 +126,13 @@ app.use("/api/production-categories", productionCategoryRoutes);
 app.use("/api/raw-materials", publicRawMaterialsRoutes);
 app.use("/api/production-methods", publicProductionMethodsRoutes);
 app.use("/api/surface-treatments", surfaceTreatmentsRoutes);
+app.use("/api/product-interactions", productInteractionsRoutes);
+app.use("/api/production-offers", productionOffersRoutes);
 
 // Start server
 app.listen(PORT, () => {
   console.log(`Server ${PORT} portunda çalışıyor`);
+
+  // Otomatik pasif hale getirme servisini başlat
+  ProductAutoDeactivationService.startAutoDeactivationCron();
 });
