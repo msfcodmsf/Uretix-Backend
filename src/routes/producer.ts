@@ -244,7 +244,9 @@ router.get("/showcase/:id", async (req, res) => {
       }),
       headline: news.title,
       description: news.description,
-      image: news.coverImage || "https://via.placeholder.com/300x200",
+      image:
+        news.coverImage ||
+        "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=200&fit=crop",
       videoUrl: news.videoUrl,
       detailImages: news.detailImages,
       category: news.category,
@@ -325,7 +327,7 @@ router.get("/showcase/:id", async (req, res) => {
         originalPrice: price, // Aynı fiyat
         rating: storefront.rating || 0,
         reviewCount: product.totalComments || 0,
-        favorites: storefront.followers?.length || 0,
+        favorites: product.totalLikes || 0,
         location:
           `${storefront.city || ""}, ${storefront.district || ""}`.trim() ||
           "Türkiye",
@@ -333,7 +335,9 @@ router.get("/showcase/:id", async (req, res) => {
         fastDelivery: storefront.estimatedDeliveryTime
           ? storefront.estimatedDeliveryTime.includes("1-3")
           : true,
-        image: product.images?.[0] || "https://via.placeholder.com/300x200",
+        image:
+          product.images?.[0] ||
+          "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=200&fit=crop",
         video: product.videoUrl || null,
       };
     });
@@ -354,7 +358,9 @@ router.get("/showcase/:id", async (req, res) => {
         "Türkiye",
       salary: listing.salary,
       benefits: listing.benefits,
-      coverImage: listing.coverImage || "https://via.placeholder.com/300x200",
+      coverImage:
+        listing.coverImage ||
+        "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=200&fit=crop",
       videoUrl: listing.videoUrl,
       detailImages: listing.detailImages,
       technicalDetails: listing.technicalDetails,
