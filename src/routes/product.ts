@@ -191,7 +191,37 @@ router.get("/", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET single product
+// GET single product (public - no authentication required)
+router.get("/public/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findById(id).populate(
+      "producer",
+      "companyName"
+    );
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Ürün bulunamadı",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: product,
+    });
+  } catch (error: any) {
+    console.error("Error fetching product:", error);
+    res.status(500).json({
+      success: false,
+      message: "Ürün getirilemedi",
+    });
+  }
+});
+
+// GET single product (authenticated - for producers to access their own products)
 router.get("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;

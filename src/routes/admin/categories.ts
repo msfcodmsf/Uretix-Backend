@@ -17,7 +17,7 @@ router.use(requireAdmin);
 // GET all production categories with optional filtering
 router.get("/production-categories", async (req, res) => {
   try {
-    const { type, vitrinCategory, parentCategory } = req.query;
+    const { type, vitrinCategory, parentCategory, productType } = req.query;
     let filter: any = {};
 
     if (type) {
@@ -26,6 +26,10 @@ router.get("/production-categories", async (req, res) => {
 
     if (vitrinCategory && type === "vitrin") {
       filter.vitrinCategory = vitrinCategory;
+    }
+
+    if (productType) {
+      filter.productType = productType;
     }
 
     // Alt kategori filtreleme
@@ -84,6 +88,28 @@ router.get(
     } catch (error) {
       console.error("Alt-alt kategoriler getirilirken hata:", error);
       res.status(500).json({ message: "Alt-alt kategoriler getirilemedi" });
+    }
+  }
+);
+
+// GET product types (4th level) for a specific sub-subcategory
+router.get(
+  "/production-categories/:parentId/subcategories/:subId/sub-subcategories/:subSubId/product-types",
+  async (req, res) => {
+    try {
+      const { subSubId } = req.params;
+
+      const productTypes = await ProductionCategory.find({
+        parentCategory: subSubId,
+        type: "vitrin",
+        vitrinCategory: "uretim",
+        productType: { $in: ["bitmis_urun", "yari_mamul"] },
+      }).sort({ name: 1 });
+
+      res.json(productTypes);
+    } catch (error) {
+      console.error("Ürün tipleri getirilirken hata:", error);
+      res.status(500).json({ message: "Ürün tipleri getirilemedi" });
     }
   }
 );
@@ -357,7 +383,8 @@ router.delete("/service-sectors/:id", async (req, res) => {
 // POST create new production category
 router.post("/production-categories", async (req, res) => {
   try {
-    const { name, type, vitrinCategory, parentCategory } = req.body;
+    const { name, type, vitrinCategory, parentCategory, productType } =
+      req.body;
 
     if (!name || name.trim().length === 0) {
       return res.status(400).json({ message: "Kategori adı gereklidir" });
@@ -394,11 +421,27 @@ router.post("/production-categories", async (req, res) => {
       }
     }
 
+    // ProductType kontrolü - sadece 4. seviye kategorilerde geçerli
+    if (productType && !parentCategory) {
+      return res.status(400).json({
+        message:
+          "Ürün tipi sadece alt-alt kategorilerin altında oluşturulabilir",
+      });
+    }
+
+    if (productType && !["bitmis_urun", "yari_mamul"].includes(productType)) {
+      return res.status(400).json({
+        message:
+          "Geçersiz ürün tipi. Sadece 'bitmis_urun' veya 'yari_mamul' olabilir",
+      });
+    }
+
     // Check for existing category with same name and type
     const existingCategory = await ProductionCategory.findOne({
       name: name.trim(),
       type: type,
       parentCategory: parentCategory || { $exists: false },
+      productType: productType || { $exists: false },
     });
 
     if (existingCategory) {
@@ -419,6 +462,10 @@ router.post("/production-categories", async (req, res) => {
 
     if (parentCategory) {
       categoryData.parentCategory = parentCategory;
+    }
+
+    if (productType) {
+      categoryData.productType = productType;
     }
 
     try {
@@ -444,7 +491,14 @@ router.post("/production-categories", async (req, res) => {
 router.put("/production-categories/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, type, vitrinCategory, parentCategory, isActive } = req.body;
+    const {
+      name,
+      type,
+      vitrinCategory,
+      parentCategory,
+      productType,
+      isActive,
+    } = req.body;
 
     const category = await ProductionCategory.findById(id);
     if (!category) {
@@ -458,6 +512,7 @@ router.put("/production-categories/:id", async (req, res) => {
         type: type || category.type,
         parentCategory: parentCategory ||
           category.parentCategory || { $exists: false },
+        productType: productType || category.productType || { $exists: false },
         _id: { $ne: id },
       });
 
@@ -511,6 +566,17 @@ router.put("/production-categories/:id", async (req, res) => {
       }
 
       category.parentCategory = parentCategory || undefined;
+    }
+
+    // ProductType güncellemesi
+    if (productType !== undefined) {
+      if (productType && !["bitmis_urun", "yari_mamul"].includes(productType)) {
+        return res.status(400).json({
+          message:
+            "Geçersiz ürün tipi. Sadece 'bitmis_urun' veya 'yari_mamul' olabilir",
+        });
+      }
+      category.productType = productType || undefined;
     }
 
     if (typeof isActive === "boolean") {

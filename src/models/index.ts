@@ -14,6 +14,9 @@ export { Product, IProduct } from "./Product.model";
 // Order Models
 export { Order, IOrder } from "./Order.model";
 
+// Cart Models
+export { Cart, ICart, ICartItem } from "./Cart.model";
+
 // Job Models
 export {
   ProductionListing,

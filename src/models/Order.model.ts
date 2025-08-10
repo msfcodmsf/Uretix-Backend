@@ -3,6 +3,7 @@ import mongoose, { Document, Schema, Types } from "mongoose";
 export interface IOrder {
   _id: string;
   id: string; // Virtual property for _id
+  orderNumber: string; // Özel sipariş numarası
   buyer: Types.ObjectId;
   seller: Types.ObjectId;
   products: {
@@ -42,6 +43,11 @@ export interface IOrder {
 
 const orderSchema = new Schema<IOrder & Document>(
   {
+    orderNumber: {
+      type: String,
+      unique: true,
+      required: true,
+    },
     buyer: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -192,5 +198,36 @@ const orderSchema = new Schema<IOrder & Document>(
     timestamps: true,
   }
 );
+
+// Sipariş numarası oluştur
+const generateOrderNumber = async (): Promise<string> => {
+  let orderNumber: string;
+  let exists = true;
+
+  while (exists) {
+    // UX- prefixi ile 8 haneli rastgele alfanumerik kod
+    const randomCode = Math.random()
+      .toString(36)
+      .substring(2, 10)
+      .toUpperCase();
+    orderNumber = `UX-${randomCode}`;
+
+    // Bu numara daha önce kullanılmış mı kontrol et
+    const existingOrder = await mongoose
+      .model("Order")
+      .findOne({ orderNumber });
+    exists = !!existingOrder;
+  }
+
+  return orderNumber!;
+};
+
+// Pre-save middleware: Sipariş numarası otomatik oluştur
+orderSchema.pre("save", async function (next) {
+  if (this.isNew && !this.orderNumber) {
+    this.orderNumber = await generateOrderNumber();
+  }
+  next();
+});
 
 export const Order = mongoose.model<IOrder & Document>("Order", orderSchema);

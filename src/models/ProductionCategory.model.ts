@@ -6,6 +6,7 @@ export interface IProductionCategory extends Document {
   type: "surface_treatment" | "laser_logo" | "other" | "vitrin";
   vitrinCategory?: "uretim" | "hizmet" | "urun";
   parentCategory?: string;
+  productType?: "bitmis_urun" | "yari_mamul"; // Bitmiş Ürünler veya Yarı Mamül Ürünler
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -35,6 +36,10 @@ const productionCategorySchema = new Schema<IProductionCategory>(
     parentCategory: {
       type: Schema.Types.ObjectId,
       ref: "ProductionCategory",
+    },
+    productType: {
+      type: String,
+      enum: ["bitmis_urun", "yari_mamul"],
     },
     isActive: {
       type: Boolean,
