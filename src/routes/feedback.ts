@@ -211,6 +211,67 @@ router.get(
   }
 );
 
+// Admin: Geri bildirim istatistikleri
+router.get(
+  "/admin/stats",
+  authenticateToken,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const stats = await Feedback.aggregate([
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const priorityStats = await Feedback.aggregate([
+        {
+          $group: {
+            _id: "$priority",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const typeStats = await Feedback.aggregate([
+        {
+          $group: {
+            _id: "$type",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const total = await Feedback.countDocuments();
+      const openCount = await Feedback.countDocuments({ status: "open" });
+      const criticalCount = await Feedback.countDocuments({
+        priority: "critical",
+      });
+
+      res.json({
+        success: true,
+        data: {
+          total,
+          openCount,
+          criticalCount,
+          statusBreakdown: stats,
+          priorityBreakdown: priorityStats,
+          typeBreakdown: typeStats,
+        },
+      });
+    } catch (error) {
+      console.error("İstatistikler getirilirken hata:", error);
+      res.status(500).json({
+        success: false,
+        message: "İstatistikler getirilirken hata oluştu",
+      });
+    }
+  }
+);
+
 // Admin: Geri bildirim detayını getir
 router.get(
   "/admin/:id",
@@ -349,67 +410,6 @@ router.put(
       res.status(500).json({
         success: false,
         message: "Durum güncellenirken hata oluştu",
-      });
-    }
-  }
-);
-
-// Admin: Geri bildirim istatistikleri
-router.get(
-  "/admin/stats",
-  authenticateToken,
-  requireAdmin,
-  async (req: Request, res: Response) => {
-    try {
-      const stats = await Feedback.aggregate([
-        {
-          $group: {
-            _id: "$status",
-            count: { $sum: 1 },
-          },
-        },
-      ]);
-
-      const priorityStats = await Feedback.aggregate([
-        {
-          $group: {
-            _id: "$priority",
-            count: { $sum: 1 },
-          },
-        },
-      ]);
-
-      const typeStats = await Feedback.aggregate([
-        {
-          $group: {
-            _id: "$type",
-            count: { $sum: 1 },
-          },
-        },
-      ]);
-
-      const total = await Feedback.countDocuments();
-      const openCount = await Feedback.countDocuments({ status: "open" });
-      const criticalCount = await Feedback.countDocuments({
-        priority: "critical",
-      });
-
-      res.json({
-        success: true,
-        data: {
-          total,
-          openCount,
-          criticalCount,
-          statusBreakdown: stats,
-          priorityBreakdown: priorityStats,
-          typeBreakdown: typeStats,
-        },
-      });
-    } catch (error) {
-      console.error("İstatistikler getirilirken hata:", error);
-      res.status(500).json({
-        success: false,
-        message: "İstatistikler getirilirken hata oluştu",
       });
     }
   }
