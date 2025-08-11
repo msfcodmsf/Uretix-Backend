@@ -25,6 +25,8 @@ import productionOffersRoutes from "./routes/productionOffers";
 import commentRoutes from "./routes/comments";
 import cartRoutes from "./routes/cart";
 import orderRoutes from "./routes/order";
+import announcementRoutes from "./routes/announcements";
+import feedbackRoutes from "./routes/feedback";
 import s3Client from "./config/s3";
 import { ListBucketsCommand } from "@aws-sdk/client-s3";
 import ProductAutoDeactivationService from "./services/productAutoDeactivationService";
@@ -134,6 +136,8 @@ app.use("/api/production-offers", productionOffersRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/announcements", announcementRoutes);
+app.use("/api/feedback", feedbackRoutes);
 
 // Start server
 app.listen(PORT, () => {

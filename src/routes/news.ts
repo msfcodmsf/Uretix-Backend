@@ -96,8 +96,6 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       .sort({ createdAt: -1 })
       .populate("producer", "companyName");
 
-    console.log("Found news:", news); // Debug log
-
     res.json({
       success: true,
       data: news,

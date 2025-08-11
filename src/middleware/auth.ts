@@ -42,3 +42,40 @@ export const generateToken = (userId: string): string => {
     expiresIn: "7d",
   });
 };
+
+// Add missing middleware functions
+export const requireAdmin = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void => {
+  if (!req.user) {
+    res.status(401).json({ message: "Authentication required" });
+    return;
+  }
+
+  if (req.user.role !== "admin" && req.user.role !== "superadmin") {
+    res.status(403).json({ message: "Admin access required" });
+    return;
+  }
+
+  next();
+};
+
+export const requireProducer = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void => {
+  if (!req.user) {
+    res.status(401).json({ message: "Authentication required" });
+    return;
+  }
+
+  if (req.user.role !== "producer") {
+    res.status(403).json({ message: "Producer access required" });
+    return;
+  }
+
+  next();
+};

@@ -7,6 +7,7 @@ import { requireProducer } from "../middleware/roleAuth";
 import { Producer } from "../models/Producer.model";
 import { Advertisement } from "../models/Advertisement.model";
 import { AdvertisementCategory } from "../models/AdvertisementCategory.model";
+import { ProducerStorefront } from "../models/ProducerStorefront.model";
 
 const router = express.Router();
 
@@ -114,7 +115,67 @@ interface AuthRequest extends Request {
   user?: any;
 }
 
-// Apply middleware to all routes
+// GET single advertisement by ID (public - no authentication required)
+router.get("/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Reklam ID'si gerekli",
+      });
+    }
+
+    // Reklamı bul ve producer bilgilerini populate et
+    const advertisement = await Advertisement.findById(id)
+      .populate({
+        path: "producer",
+        populate: {
+          path: "user",
+          select: "firstName lastName email profileImage",
+        },
+      })
+      .lean();
+
+    if (!advertisement) {
+      return res.status(404).json({
+        success: false,
+        message: "Reklam bulunamadı",
+      });
+    }
+
+    // Görüntüleme sayısını artır
+    await Advertisement.findByIdAndUpdate(id, { $inc: { views: 1 } });
+
+    // Producer storefront bilgilerini al
+    const producerStorefront = await ProducerStorefront.findOne({
+      producer: advertisement.producer._id,
+    }).select("companyName companySlogan companyLogo companyDescription");
+
+    res.json({
+      success: true,
+      data: {
+        ...advertisement,
+        producer: {
+          ...advertisement.producer,
+          companyName: producerStorefront?.companyName || "",
+          companySlogan: producerStorefront?.companySlogan || "",
+          companyLogo: producerStorefront?.companyLogo || "",
+          companyDescription: producerStorefront?.companyDescription || "",
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error("Error fetching advertisement:", error);
+    res.status(500).json({
+      success: false,
+      message: "Reklam getirilemedi",
+    });
+  }
+});
+
+// Apply middleware to all routes (after public routes)
 router.use(authenticateToken);
 router.use(requireProducer);
 
@@ -160,46 +221,51 @@ router.get("/", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET single advertisement by ID
-router.get("/:id", async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user?.id;
+// GET single advertisement by ID (producer's own advertisement)
+router.get(
+  "/my/:id",
+  authenticateToken,
+  requireProducer,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
 
-    // Find producer by user ID
-    const producer = await Producer.findOne({ user: userId });
+      // Find producer by user ID
+      const producer = await Producer.findOne({ user: userId });
 
-    if (!producer) {
-      return res.status(404).json({
+      if (!producer) {
+        return res.status(404).json({
+          success: false,
+          message: "Producer bulunamadı",
+        });
+      }
+
+      const advertisement = await Advertisement.findOne({
+        _id: id,
+        producer: producer._id,
+      });
+
+      if (!advertisement) {
+        return res.status(404).json({
+          success: false,
+          message: "Reklam bulunamadı",
+        });
+      }
+
+      res.json({
+        success: true,
+        data: advertisement,
+      });
+    } catch (error: any) {
+      console.error("Error fetching advertisement:", error);
+      res.status(500).json({
         success: false,
-        message: "Producer bulunamadı",
+        message: "Reklam getirilemedi",
       });
     }
-
-    const advertisement = await Advertisement.findOne({
-      _id: id,
-      producer: producer._id,
-    });
-
-    if (!advertisement) {
-      return res.status(404).json({
-        success: false,
-        message: "Reklam bulunamadı",
-      });
-    }
-
-    res.json({
-      success: true,
-      data: advertisement,
-    });
-  } catch (error: any) {
-    console.error("Error fetching advertisement:", error);
-    res.status(500).json({
-      success: false,
-      message: "Reklam getirilemedi",
-    });
   }
-});
+);
 
 // POST create new advertisement
 router.post("/", async (req: AuthRequest, res: Response) => {

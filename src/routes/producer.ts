@@ -18,10 +18,7 @@ import {
   Service,
   Advertisement,
 } from "../models";
-
-interface AuthRequest extends Request {
-  user?: any;
-}
+import { AuthRequest } from "../types/auth";
 
 // S3 Client for video uploads
 const s3Client = new S3Client({
@@ -1523,6 +1520,323 @@ router.delete(
       res.status(500).json({
         success: false,
         message: "Logo silinirken hata oluştu",
+      });
+    }
+  }
+);
+
+// Test endpoint to check if models are working
+router.get("/test-models", async (req: Request, res: Response) => {
+  try {
+    console.log("Testing models...");
+
+    // Test Producer model
+    const producerCount = await Producer.countDocuments();
+    console.log("Producer count:", producerCount);
+
+    // Test Product model
+    const productCount = await Product.countDocuments();
+    console.log("Product count:", productCount);
+
+    // Test Service model
+    const serviceCount = await Service.countDocuments();
+    console.log("Service count:", serviceCount);
+
+    res.json({
+      success: true,
+      message: "Models test completed",
+      counts: {
+        producers: producerCount,
+        products: productCount,
+        services: serviceCount,
+      },
+    });
+  } catch (error) {
+    console.error("Models test error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Models test failed",
+      error: String(error),
+    });
+  }
+});
+
+// Global search endpoint for producer dashboard
+router.get(
+  "/search",
+  authenticateToken,
+  requireProducer,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { q: searchQuery } = req.query;
+
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: "Kullanıcı bilgisi bulunamadı",
+        });
+      }
+
+      const producerId = req.user.id;
+
+      if (
+        !searchQuery ||
+        typeof searchQuery !== "string" ||
+        searchQuery.trim().length === 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Arama terimi gerekli",
+        });
+      }
+
+      console.log("Search query:", searchQuery);
+
+      // Find producer by user ID
+      console.log("Searching for producer with user ID:", producerId);
+      const producer = await Producer.findOne({ user: producerId });
+
+      if (!producer) {
+        return res.status(404).json({
+          success: false,
+          message: "Producer bulunamadı",
+        });
+      }
+
+      console.log("Found producer:", producer._id);
+
+      const searchRegex = { $regex: searchQuery, $options: "i" };
+      const searchInTags = { $regex: searchQuery, $options: "i" };
+
+      console.log("Starting database searches...");
+
+      // Search in products
+      console.log("Searching products...");
+      let products: any[] = [];
+      try {
+        products = await Product.find({
+          producer: producer._id,
+          $or: [
+            { name: searchRegex },
+            { description: searchRegex },
+            { category: searchRegex },
+            { subCategory: searchRegex },
+            { subSubCategory: searchRegex },
+            { tags: searchInTags },
+          ],
+        })
+          .select("_id name description category coverImage isActive createdAt")
+          .limit(5)
+          .lean();
+      } catch (error) {
+        console.error("Error searching products:", error);
+        products = [];
+      }
+
+      console.log("Products found:", products.length);
+
+      // Search in production listings
+      console.log("Searching production listings...");
+      let productionListings: any[] = [];
+      try {
+        productionListings = await ProductionListing.find({
+          producer: producer._id,
+          $or: [
+            { title: searchRegex },
+            { description: searchRegex },
+            { category: searchRegex },
+            { subCategory: searchRegex },
+            { subSubCategory: searchRegex },
+            { tags: searchInTags },
+          ],
+        })
+          .select(
+            "_id title description category coverImage isActive createdAt"
+          )
+          .limit(5)
+          .lean();
+      } catch (error) {
+        console.error("Error searching production listings:", error);
+        productionListings = [];
+      }
+
+      // Search in services
+      console.log("Searching services...");
+      let services: any[] = [];
+      try {
+        services = await Service.find({
+          producer: producer._id,
+          $or: [
+            { title: searchRegex },
+            { description: searchRegex },
+            { tags: searchInTags },
+          ],
+        })
+          .select("_id title description category images isActive createdAt")
+          .limit(5)
+          .lean();
+      } catch (error) {
+        console.error("Error searching services:", error);
+        services = [];
+      }
+
+      // Search in news
+      console.log("Searching news...");
+      let news: any[] = [];
+      try {
+        news = await News.find({
+          producer: producer._id,
+          $or: [
+            { title: searchRegex },
+            { description: searchRegex },
+            { category: searchRegex },
+            { subCategory: searchRegex },
+            { subSubCategory: searchRegex },
+            { tags: searchInTags },
+          ],
+        })
+          .select(
+            "_id title description category coverImage isActive createdAt"
+          )
+          .limit(5)
+          .lean();
+      } catch (error) {
+        console.error("Error searching news:", error);
+        news = [];
+      }
+
+      // Search in advertisements
+      console.log("Searching advertisements...");
+      let advertisements: any[] = [];
+      try {
+        advertisements = await Advertisement.find({
+          producer: producer._id,
+          $or: [
+            { title: searchRegex },
+            { description: searchRegex },
+            { category: searchRegex },
+            { subCategory: searchRegex },
+            { subSubCategory: searchRegex },
+            { tags: searchInTags },
+          ],
+        })
+          .select(
+            "_id title description category coverImage isActive createdAt"
+          )
+          .limit(5)
+          .lean();
+      } catch (error) {
+        console.error("Error searching advertisements:", error);
+        advertisements = [];
+      }
+
+      console.log("All searches completed:");
+      console.log("Products found:", products.length);
+      console.log("Production listings found:", productionListings.length);
+      console.log("Services found:", services.length);
+      console.log("News found:", news.length);
+      console.log("Advertisements found:", advertisements.length);
+
+      // Format results
+      const formattedProducts = products.map((product) => ({
+        id: product._id.toString(),
+        type: "product",
+        title: product.name,
+        description: product.description,
+        category: product.category,
+        image: product.coverImage,
+        isActive: product.isActive,
+        createdAt: product.createdAt,
+        url: `/products/${product._id}`,
+      }));
+
+      const formattedProductionListings = productionListings.map((listing) => ({
+        id: listing._id.toString(),
+        type: "production-listing",
+        title: listing.title,
+        description: listing.description,
+        category: listing.category,
+        image: listing.coverImage,
+        isActive: listing.isActive,
+        createdAt: listing.createdAt,
+        url: `/productions/${listing._id}`,
+      }));
+
+      const formattedServices = services.map((service) => ({
+        id: service._id.toString(),
+        type: "service",
+        title: service.title,
+        description: service.description,
+        category: "Genel Hizmet", // Simplified category handling
+        image: service.images?.[0],
+        isActive: service.isActive,
+        createdAt: service.createdAt,
+        url: `/services/${service._id}`,
+      }));
+
+      const formattedNews = news.map((item) => ({
+        id: item._id.toString(),
+        type: "news",
+        title: item.title,
+        description: item.description,
+        category: item.category,
+        image: item.coverImage,
+        isActive: item.isActive,
+        createdAt: item.createdAt,
+        url: `/news/${item._id}`,
+      }));
+
+      const formattedAdvertisements = advertisements.map((ad) => ({
+        id: ad._id.toString(),
+        type: "advertisement",
+        title: ad.title,
+        description: ad.description,
+        category: ad.category,
+        image: ad.coverImage,
+        isActive: ad.isActive,
+        createdAt: ad.createdAt,
+        url: `/advertisements/${ad._id}`,
+      }));
+
+      // Combine all results
+      const allResults = [
+        ...formattedProducts,
+        ...formattedProductionListings,
+        ...formattedServices,
+        ...formattedNews,
+        ...formattedAdvertisements,
+      ].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      res.json({
+        success: true,
+        data: {
+          results: allResults,
+          stats: {
+            products: formattedProducts.length,
+            productionListings: formattedProductionListings.length,
+            services: formattedServices.length,
+            news: formattedNews.length,
+            advertisements: formattedAdvertisements.length,
+            total: allResults.length,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Global search error:", error);
+      console.error("Error details:", {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        searchQuery: req.query.q,
+        producerId: req.user?.id,
+      });
+      res.status(500).json({
+        success: false,
+        message: "Arama yapılırken hata oluştu",
+        error:
+          process.env.NODE_ENV === "development" ? String(error) : undefined,
       });
     }
   }

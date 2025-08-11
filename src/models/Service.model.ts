@@ -124,14 +124,14 @@ serviceSchema.pre("save", async function (next) {
   next();
 });
 
-// Pre-find middleware to populate categoryName
-serviceSchema.pre("find", function (this: any) {
-  this.populate("category", "_id name");
-});
+// Pre-find middleware to populate categoryName - temporarily disabled
+// serviceSchema.pre("find", function (this: any) {
+//   this.populate("category", "_id name");
+// });
 
-serviceSchema.pre("findOne", function (this: any) {
-  this.populate("category", "_id name");
-});
+// serviceSchema.pre("findOne", function (this: any) {
+//   this.populate("category", "_id name");
+// });
 
 const Service = mongoose.model<IService & Document>("Service", serviceSchema);
 
