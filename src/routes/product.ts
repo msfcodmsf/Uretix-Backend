@@ -113,6 +113,136 @@ router.get(
   }
 );
 
+// GET sub-sub categories by product type for a specific sub category
+router.get(
+  "/categories/:subId/sub-subcategories/:productType",
+  async (req: Request, res: Response) => {
+    try {
+      const { subId, productType } = req.params;
+
+      // Validate product type
+      if (!["yarim-mamul", "bitmis-urun"].includes(productType)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Geçersiz ürün tipi. 'yarim-mamul' veya 'bitmis-urun' olmalıdır",
+        });
+      }
+
+      const subSubCategories = await ProductionCategory.find({
+        parentCategory: subId,
+        isActive: true,
+        type: "vitrin",
+        vitrinCategory: "uretim",
+        productType: productType, // Ürün tipine göre filtrele
+      }).sort({
+        name: 1,
+      });
+
+      res.json({
+        success: true,
+        data: subSubCategories,
+      });
+    } catch (error) {
+      console.error(
+        "Error fetching sub-sub categories by product type:",
+        error
+      );
+      res.status(500).json({
+        success: false,
+        message: "Ürün tipine göre alt-alt kategoriler getirilemedi",
+      });
+    }
+  }
+);
+
+// GET all sub-sub categories by product type (tüm alt-alt kategorileri ürün tipine göre getir)
+router.get(
+  "/categories/sub-subcategories/:productType",
+  async (req: Request, res: Response) => {
+    try {
+      const { productType } = req.params;
+
+      // Validate product type
+      if (!["yarim-mamul", "bitmis-urun"].includes(productType)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Geçersiz ürün tipi. 'yarim-mamul' veya 'bitmis-urun' olmalıdır",
+        });
+      }
+
+      const subSubCategories = await ProductionCategory.find({
+        isActive: true,
+        type: "vitrin",
+        vitrinCategory: "uretim",
+        productType: productType, // Ürün tipine göre filtrele
+        parentCategory: { $exists: true }, // Alt-alt kategoriler (parentCategory olan)
+      }).sort({
+        name: 1,
+      });
+
+      res.json({
+        success: true,
+        data: subSubCategories,
+      });
+    } catch (error) {
+      console.error(
+        "Error fetching all sub-sub categories by product type:",
+        error
+      );
+      res.status(500).json({
+        success: false,
+        message: "Alt-alt kategoriler getirilemedi",
+      });
+    }
+  }
+);
+
+// GET product types (4th level) for a specific sub-subcategory
+router.get(
+  "/categories/:subSubName/product-types",
+  async (req: Request, res: Response) => {
+    try {
+      const { subSubName } = req.params;
+
+      // Önce kategori adına göre kategoriyi bul
+      const subSubCategory = await ProductionCategory.findOne({
+        name: subSubName,
+        isActive: true,
+        type: "vitrin",
+        vitrinCategory: "uretim",
+      });
+
+      if (!subSubCategory) {
+        return res.status(404).json({
+          success: false,
+          message: "Kategori bulunamadı",
+        });
+      }
+
+      // Bu kategorinin altındaki ürün tiplerini bul (hem bitmiş ürün hem yarı mamül)
+      const productTypes = await ProductionCategory.find({
+        parentCategory: subSubCategory._id,
+        isActive: true,
+        type: "vitrin",
+        vitrinCategory: "uretim",
+      }).sort({ name: 1 });
+
+      res.json({
+        success: true,
+        data: productTypes,
+      });
+    } catch (error) {
+      console.error("Error fetching product types:", error);
+      res.status(500).json({
+        success: false,
+        message: "Ürün tipleri getirilemedi",
+      });
+    }
+  }
+);
+
 // GET material types
 router.get("/material-types", async (req: Request, res: Response) => {
   try {
@@ -285,8 +415,8 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       "name",
       "shortDescription",
       "description",
-      "category",
-      "subCategory",
+      "subSubCategory",
+      "productType",
       "availableQuantity",
       "materialType",
       "dimensions",
@@ -305,6 +435,15 @@ router.post("/", async (req: AuthRequest, res: Response) => {
         success: false,
         message: `Eksik alanlar: ${missingFields.join(", ")}`,
         missingFields,
+      });
+    }
+
+    // Validate productType
+    if (!["yarim-mamul", "bitmis-urun"].includes(productData.productType)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Geçersiz ürün tipi. 'yarim-mamul' veya 'bitmis-urun' olmalıdır",
       });
     }
 

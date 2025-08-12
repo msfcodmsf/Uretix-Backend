@@ -7,8 +7,9 @@ export interface IProduct {
   name: string;
   shortDescription: string;
   description: string;
-  category: string;
-  subCategory: string;
+  subSubCategory: string;
+  productCategory: string;
+  productType: "yarim-mamul" | "bitmis-urun"; // Yarı mamül veya bitmiş ürün
   inStock?: boolean;
   maximumOrderQuantity?: number;
   availableQuantity: number;
@@ -136,15 +137,21 @@ const productSchema = new Schema<IProduct & Document>(
       required: true,
       maxlength: 2000,
     },
-    category: {
+    subSubCategory: {
       type: String,
       required: true,
       trim: true,
     },
-    subCategory: {
+    productCategory: {
       type: String,
       required: true,
       trim: true,
+    },
+    productType: {
+      type: String,
+      required: true,
+      enum: ["yarim-mamul", "bitmis-urun"],
+      default: "bitmis-urun",
     },
 
     inStock: {
@@ -153,7 +160,7 @@ const productSchema = new Schema<IProduct & Document>(
     },
     maximumOrderQuantity: {
       type: Number,
-      min: 1,
+      min: 0,
     },
     availableQuantity: {
       type: Number,
@@ -444,8 +451,8 @@ const productSchema = new Schema<IProduct & Document>(
 productSchema.index({
   name: "text",
   description: "text",
-  category: "text",
-  subCategory: "text",
+  subSubCategory: "text",
+  productCategory: "text",
   tags: "text",
 });
 

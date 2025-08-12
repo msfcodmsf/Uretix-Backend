@@ -103,7 +103,7 @@ router.get(
         parentCategory: subSubId,
         type: "vitrin",
         vitrinCategory: "uretim",
-        productType: { $in: ["bitmis_urun", "yari_mamul"] },
+        productType: { $in: ["bitmis-urun", "yarim-mamul"] },
       }).sort({ name: 1 });
 
       res.json(productTypes);
@@ -570,10 +570,13 @@ router.put("/production-categories/:id", async (req, res) => {
 
     // ProductType güncellemesi
     if (productType !== undefined) {
-      if (productType && !["bitmis_urun", "yari_mamul"].includes(productType)) {
+      if (
+        productType &&
+        !["bitmis-urun", "yarim-mamul"].includes(productType)
+      ) {
         return res.status(400).json({
           message:
-            "Geçersiz ürün tipi. Sadece 'bitmis_urun' veya 'yari_mamul' olabilir",
+            "Geçersiz ürün tipi. Sadece 'bitmis-urun' veya 'yarim-mamul' olabilir",
         });
       }
       category.productType = productType || undefined;

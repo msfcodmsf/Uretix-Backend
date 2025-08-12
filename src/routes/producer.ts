@@ -319,7 +319,7 @@ router.get("/showcase/:id", async (req, res) => {
         id: product._id.toString(),
         name: product.name,
         brand: storefront.companyName,
-        category: product.category || mainCategoryName,
+        category: product.productCategory || mainCategoryName,
         price: price,
         originalPrice: price, // Aynı fiyat
         rating: storefront.rating || 0,
@@ -427,7 +427,7 @@ router.get("/showcase/:id", async (req, res) => {
           }, ${storefront.city || ""}`,
           mainCategory: mainCategoryName,
           subCategories: subCategoriesNames,
-          subSubCategories: storefront.subSubProductionCategories || [],
+
           deliveryRegions: storefront.deliveryRegions || [],
           estimatedDeliveryTime:
             storefront.estimatedDeliveryTime || "1-3 iş günü",
@@ -524,6 +524,7 @@ router.get("/my-shop-window", async (req: AuthRequest, res: Response) => {
               mainProductionCategory: storefront.mainProductionCategory,
               subProductionCategories: storefront.subProductionCategories,
               subSubProductionCategories: storefront.subSubProductionCategories,
+
               companyDescription: storefront.companyDescription,
               companySlogan: storefront.companySlogan,
               companyLogo: storefront.companyLogo,
@@ -640,6 +641,7 @@ router.put("/my-shop-window", async (req: AuthRequest, res: Response) => {
         mainProductionCategory: updateData.mainCategory || "",
         subProductionCategories: updateData.subCategories || [],
         subSubProductionCategories: updateData.subSubCategories || [],
+
         serviceTags: updateData.serviceTags || [],
         interestTags: updateData.interestTags || [],
         deliveryRegions: updateData.deliveryRegions || [],
@@ -671,6 +673,7 @@ router.put("/my-shop-window", async (req: AuthRequest, res: Response) => {
           updateData.subCategories || storefront.subProductionCategories,
         subSubProductionCategories:
           updateData.subSubCategories || storefront.subSubProductionCategories,
+
         serviceTags: updateData.serviceTags || storefront.serviceTags,
         interestTags: updateData.interestTags || storefront.interestTags,
         deliveryRegions:
@@ -714,7 +717,7 @@ router.put("/my-shop-window", async (req: AuthRequest, res: Response) => {
           address: storefront.address,
           mainProductionCategory: storefront.mainProductionCategory,
           subProductionCategories: storefront.subProductionCategories,
-          subSubProductionCategories: storefront.subSubProductionCategories,
+
           companyDescription: storefront.companyDescription,
           companySlogan: storefront.companySlogan,
           companyLogo: storefront.companyLogo,
@@ -867,6 +870,45 @@ router.get(
     } catch (error) {
       console.error("Alt-alt kategoriler getirilirken hata:", error);
       res.status(500).json({ message: "Alt-alt kategoriler getirilemedi" });
+    }
+  }
+);
+
+// GET sub-subcategories by product type for a specific subcategory
+router.get(
+  "/categories/:parentId/sub-subcategories/:productType",
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { parentId, productType } = req.params;
+
+      // Validate product type
+      if (!["yarim-mamul", "bitmis-urun"].includes(productType)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Geçersiz ürün tipi. 'yarim-mamul' veya 'bitmis-urun' olmalıdır",
+        });
+      }
+
+      const subSubcategories = await ProductionCategory.find({
+        parentCategory: parentId,
+        type: "vitrin",
+        vitrinCategory: "uretim",
+        isActive: true,
+        productType: productType, // Ürün tipine göre filtrele
+      }).sort({ name: 1 });
+
+      res.json({
+        subSubcategories,
+      });
+    } catch (error) {
+      console.error(
+        "Alt-alt kategoriler ürün tipine göre getirilirken hata:",
+        error
+      );
+      res
+        .status(500)
+        .json({ message: "Alt-alt kategoriler ürün tipine göre getirilemedi" });
     }
   }
 );
