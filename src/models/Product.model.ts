@@ -5,7 +5,6 @@ export interface IProduct {
   id: string; // Virtual property for _id
   producer: Types.ObjectId;
   name: string;
-  shortDescription: string;
   description: string;
   subSubCategory: string;
   productCategory: string;
@@ -16,22 +15,25 @@ export interface IProduct {
   coverImage: string; // Ürün ilan kapağı
   images: string[]; // Detay fotoğrafları (max 5)
   videoUrl?: string; // Ürün videosu
-  materialType: string; // Malzeme tipi
+  materialType: string; // Ana malzeme tipi (örn: çelik, alüminyum)
+  materials: Array<{
+    materialType: string; // Malzeme tipi (örn: çelik, alüminyum)
+    quantity: number; // Miktar
+    unit: string; // Birim (kg, g, adet, metre)
+    description?: string; // Açıklama (opsiyonel)
+  }>; // Kullanılan materyaller
   productVariants: Array<{
     _id?: string;
     size?: string;
     color?: string;
     stock: number;
     price: number;
+    minimumOrderQuantity: number; // Her varyant için minimum sipariş miktarı
+    weight: number; // Her varyant için ağırlık
+    depth: number; // Her varyant için derinlik
   }>;
   usageAreas: string[]; // Kullanım alanları
-  dimensions: {
-    height: number;
-    width: number;
-    depth: number;
-  };
-  weight: number;
-  weightUnit: string;
+
   estimatedDeliveryTime: string;
   shippingMethod: string;
   nonDeliveryRegions: string[];
@@ -126,12 +128,7 @@ const productSchema = new Schema<IProduct & Document>(
       trim: true,
       maxlength: 100,
     },
-    shortDescription: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 200,
-    },
+
     description: {
       type: String,
       required: true,
@@ -192,6 +189,31 @@ const productSchema = new Schema<IProduct & Document>(
       required: true,
       trim: true,
     },
+    materials: [
+      {
+        materialType: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
+        unit: {
+          type: String,
+          required: true,
+          trim: true,
+          enum: ["kg", "g", "adet", "metre", "cm", "mm", "litre", "ml"],
+        },
+        description: {
+          type: String,
+          trim: true,
+          maxlength: 200,
+        },
+      },
+    ],
     productVariants: [
       {
         size: {
@@ -212,6 +234,22 @@ const productSchema = new Schema<IProduct & Document>(
           required: true,
           min: 0,
         },
+        minimumOrderQuantity: {
+          type: Number,
+          required: true,
+          min: 1,
+          default: 1,
+        },
+        weight: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
+        depth: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
       },
     ],
     usageAreas: [
@@ -220,33 +258,7 @@ const productSchema = new Schema<IProduct & Document>(
         trim: true,
       },
     ],
-    dimensions: {
-      height: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-      width: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-      depth: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-    },
-    weight: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    weightUnit: {
-      type: String,
-      default: "kg",
-      enum: ["kg", "g", "lb", "oz"],
-    },
+
     estimatedDeliveryTime: {
       type: String,
       required: true,

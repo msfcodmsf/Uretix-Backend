@@ -243,6 +243,53 @@ router.get(
   }
 );
 
+// GET vitrin categories (tüm vitrin kategorileri)
+router.get("/vitrin-categories", async (req: Request, res: Response) => {
+  try {
+    const categories = await ProductionCategory.find({
+      isActive: true,
+      type: "vitrin",
+      vitrinCategory: "uretim",
+    }).sort({
+      name: 1,
+    });
+
+    res.json({
+      success: true,
+      data: categories,
+    });
+  } catch (error) {
+    console.error("Error fetching vitrin categories:", error);
+    res.status(500).json({
+      success: false,
+      message: "Vitrin kategorileri getirilemedi",
+    });
+  }
+});
+
+// GET all categories (genel kategoriler endpoint'i)
+router.get("/all-categories", async (req: Request, res: Response) => {
+  try {
+    const categories = await ProductionCategory.find({
+      isActive: true,
+      type: "vitrin",
+    }).sort({
+      name: 1,
+    });
+
+    res.json({
+      success: true,
+      data: categories,
+    });
+  } catch (error) {
+    console.error("Error fetching all categories:", error);
+    res.status(500).json({
+      success: false,
+      message: "Tüm kategoriler getirilemedi",
+    });
+  }
+});
+
 // GET material types
 router.get("/material-types", async (req: Request, res: Response) => {
   try {
@@ -413,14 +460,12 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     // Validate required fields
     const requiredFields = [
       "name",
-      "shortDescription",
       "description",
       "subSubCategory",
       "productType",
       "availableQuantity",
       "materialType",
-      "dimensions",
-      "weight",
+      "materials",
       "estimatedDeliveryTime",
       "shippingMethod",
     ];
@@ -447,21 +492,61 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Validate dimensions
-    if (
-      !productData.dimensions.height ||
-      !productData.dimensions.width ||
-      !productData.dimensions.depth
-    ) {
+    // Validate materialType
+    if (!productData.materialType) {
       return res.status(400).json({
         success: false,
-        message: "Ürün boyutları (yükseklik, genişlik, derinlik) gereklidir",
+        message: "Malzeme tipi gereklidir",
       });
     }
 
+    // Validate materials
+    if (
+      !productData.materials ||
+      !Array.isArray(productData.materials) ||
+      productData.materials.length === 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "En az bir materyal bilgisi gereklidir",
+      });
+    }
+
+    // Validate productVariants
+    if (
+      productData.productVariants &&
+      Array.isArray(productData.productVariants)
+    ) {
+      for (const variant of productData.productVariants) {
+        if (!variant.minimumOrderQuantity || variant.minimumOrderQuantity < 1) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Her ürün varyantı için minimum sipariş miktarı en az 1 olmalıdır",
+          });
+        }
+        if (!variant.weight || variant.weight < 0) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Her ürün varyantı için ağırlık gereklidir ve 0'dan büyük olmalıdır",
+          });
+        }
+        if (!variant.depth || variant.depth < 0) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Her ürün varyantı için derinlik gereklidir ve 0'dan büyük olmalıdır",
+          });
+        }
+      }
+    }
+
     // Set default values for optional fields
+    const { shortDescription, ...productDataWithoutShortDescription } =
+      productData;
     const productToCreate = {
-      ...productData,
+      ...productDataWithoutShortDescription,
       producer: producer._id,
       coverImage:
         productData.coverImage ||
@@ -522,7 +607,7 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const { id } = req.params;
-    const updateData = req.body;
+    const { shortDescription, ...updateDataWithoutShortDescription } = req.body;
 
     // Find producer by user ID
     const producer = await Producer.findOne({ user: userId });
@@ -539,7 +624,7 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
         _id: id,
         producer: producer._id,
       },
-      updateData,
+      updateDataWithoutShortDescription,
       { new: true }
     );
 

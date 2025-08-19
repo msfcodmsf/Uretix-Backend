@@ -128,6 +128,7 @@ app.use("/api/admin/usage-areas", usageAreasRoutes);
 app.use("/api/admin/raw-materials", rawMaterialsRoutes);
 app.use("/api/admin/production-methods", productionMethodsRoutes);
 app.use("/api/production-categories", productionCategoryRoutes);
+app.use("/api/categories", productionCategoryRoutes);
 app.use("/api/raw-materials", publicRawMaterialsRoutes);
 app.use("/api/production-methods", publicProductionMethodsRoutes);
 app.use("/api/surface-treatments", surfaceTreatmentsRoutes);

@@ -103,7 +103,7 @@ router.get(
         parentCategory: subSubId,
         type: "vitrin",
         vitrinCategory: "uretim",
-        productType: { $in: ["bitmis-urun", "yarim-mamul"] },
+        productType: { $in: ["bitmis_urun", "yari_mamul"] },
       }).sort({ name: 1 });
 
       res.json(productTypes);
@@ -421,11 +421,10 @@ router.post("/production-categories", async (req, res) => {
       }
     }
 
-    // ProductType kontrolü - sadece 4. seviye kategorilerde geçerli
+    // ProductType kontrolü - sadece alt-alt kategorilerde geçerli (parentCategory olan kategorilerde)
     if (productType && !parentCategory) {
       return res.status(400).json({
-        message:
-          "Ürün tipi sadece alt-alt kategorilerin altında oluşturulabilir",
+        message: "Ürün tipi sadece alt kategorilerin altında oluşturulabilir",
       });
     }
 
@@ -570,13 +569,10 @@ router.put("/production-categories/:id", async (req, res) => {
 
     // ProductType güncellemesi
     if (productType !== undefined) {
-      if (
-        productType &&
-        !["bitmis-urun", "yarim-mamul"].includes(productType)
-      ) {
+      if (productType && !["bitmis_urun", "yari_mamul"].includes(productType)) {
         return res.status(400).json({
           message:
-            "Geçersiz ürün tipi. Sadece 'bitmis-urun' veya 'yarim-mamul' olabilir",
+            "Geçersiz ürün tipi. Sadece 'bitmis_urun' veya 'yari_mamul' olabilir",
         });
       }
       category.productType = productType || undefined;

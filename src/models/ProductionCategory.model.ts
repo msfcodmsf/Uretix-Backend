@@ -39,7 +39,7 @@ const productionCategorySchema = new Schema<IProductionCategory>(
     },
     productType: {
       type: String,
-      enum: ["bitmis-urun", "yarim-mamul"],
+      enum: ["bitmis_urun", "yari_mamul"],
     },
     isActive: {
       type: Boolean,
