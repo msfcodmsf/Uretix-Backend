@@ -44,6 +44,74 @@ router.get("/type/:type", async (req, res) => {
   }
 });
 
+// Ürün tipi bazında kategorileri getir (bitmiş ürün veya yarı mamül)
+router.get("/product-type/:productType", async (req, res) => {
+  try {
+    const { productType } = req.params;
+
+    // productType parametresini kontrol et
+    if (!["bitmis_urun", "yari_mamul"].includes(productType)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Geçersiz ürün tipi. 'bitmis_urun' veya 'yari_mamul' olmalıdır.",
+      });
+    }
+
+    const categories = await ProductionCategory.find({
+      productType,
+      isActive: true,
+    }).sort({ name: 1 });
+
+    res.json({
+      success: true,
+      data: categories,
+      count: categories.length,
+    });
+  } catch (error) {
+    console.error(
+      "Error fetching production categories by product type:",
+      error
+    );
+    res.status(500).json({
+      success: false,
+      message: "Kategoriler yüklenirken hata oluştu",
+    });
+  }
+});
+
+// Tüm ürün tiplerini getir (bitmiş ürün ve yarı mamül)
+router.get("/product-types/all", async (req, res) => {
+  try {
+    const categories = await ProductionCategory.find({
+      productType: { $exists: true, $ne: null },
+      isActive: true,
+    }).sort({ productType: 1, name: 1 });
+
+    // Ürün tipine göre grupla
+    const groupedCategories = {
+      bitmis_urun: categories.filter(
+        (cat) => cat.productType === "bitmis_urun"
+      ),
+      yari_mamul: categories.filter((cat) => cat.productType === "yari_mamul"),
+    };
+
+    res.json({
+      success: true,
+      data: groupedCategories,
+      totalCount: categories.length,
+      bitmisUrunCount: groupedCategories.bitmis_urun.length,
+      yariMamulCount: groupedCategories.yari_mamul.length,
+    });
+  } catch (error) {
+    console.error("Error fetching all product types:", error);
+    res.status(500).json({
+      success: false,
+      message: "Kategoriler yüklenirken hata oluştu",
+    });
+  }
+});
+
 // Yeni kategori oluştur (Admin only)
 router.post("/", authenticateToken, async (req, res) => {
   try {

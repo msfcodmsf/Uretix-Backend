@@ -6,7 +6,7 @@ export interface IProductionCategory extends Document {
   type: "surface_treatment" | "laser_logo" | "other" | "vitrin";
   vitrinCategory?: "uretim" | "hizmet" | "urun";
   parentCategory?: string;
-  productType?: "bitmis-urun" | "yarim-mamul"; // Bitmiş Ürünler veya Yarı Mamül Ürünler
+  productType?: "bitmis_urun" | "yari_mamul"; // Bitmiş Ürünler veya Yarı Mamül Ürünler
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
