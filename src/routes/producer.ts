@@ -342,17 +342,16 @@ router.get("/showcase/:id", async (req, res) => {
     // Format production listings for frontend
     const formattedProductionListings = productionListings.map((listing) => ({
       id: listing._id.toString(),
-      brand: `${storefront.companyName} | ${listing.category || "Üretim"}`,
+      brand: `${storefront.companyName} | Üretim`,
       title: listing.title,
-      description: listing.description,
-      category: listing.category || mainCategoryName,
+      description: "", // Kaldırıldı
+      category: mainCategoryName, // Kaldırıldı, default değer kullan
       subCategory: listing.subCategory,
       subSubCategory: listing.subSubCategory,
       type: listing.type,
       location:
-        listing.location ||
         `${storefront.city || ""}, ${storefront.district || ""}`.trim() ||
-        "Türkiye",
+        "Türkiye", // Kaldırıldı, default değer kullan
       salary: listing.salary,
       benefits: listing.benefits,
       coverImage:
@@ -361,10 +360,10 @@ router.get("/showcase/:id", async (req, res) => {
       videoUrl: listing.videoUrl,
       detailImages: listing.detailImages,
       technicalDetails: listing.technicalDetails,
-      productionTime: listing.productionTime,
-      deliveryTime: listing.deliveryTime,
+      productionTime: "", // Kaldırıldı
+      deliveryTime: "", // Kaldırıldı
       logisticsModel: listing.logisticsModel,
-      productionLocation: listing.productionLocation,
+      productionLocation: "", // Kaldırıldı
       favorites: storefront.followers?.length || 0,
       applications: listing.applications?.length || 0,
       createdAt: listing.createdAt,
@@ -1685,15 +1684,13 @@ router.get(
           producer: producer._id,
           $or: [
             { title: searchRegex },
-            { description: searchRegex },
-            { category: searchRegex },
+            { technicalDetails: searchRegex },
             { subCategory: searchRegex },
             { subSubCategory: searchRegex },
-            { tags: searchInTags },
           ],
         })
           .select(
-            "_id title description category coverImage isActive createdAt"
+            "_id title technicalDetails subCategory subSubCategory coverImage isActive createdAt"
           )
           .limit(5)
           .lean();
@@ -1796,8 +1793,8 @@ router.get(
         id: listing._id.toString(),
         type: "production-listing",
         title: listing.title,
-        description: listing.description,
-        category: listing.category,
+        description: "", // Kaldırıldı
+        category: "Üretim", // Kaldırıldı, default değer
         image: listing.coverImage,
         isActive: listing.isActive,
         createdAt: listing.createdAt,

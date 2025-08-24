@@ -141,7 +141,7 @@ const productSchema = new Schema<IProduct & Document>(
     },
     productCategory: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
     },
     productType: {

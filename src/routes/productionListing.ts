@@ -189,16 +189,10 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     // Validate required fields
     const requiredFields = [
       "title",
-      "description",
-      "category",
-      "location",
       "type",
       "technicalDetails",
       "productionQuantity",
-      "productionTime",
-      "deliveryTime",
       "logisticsModel",
-      "productionLocation",
     ];
 
     const missingFields = requiredFields.filter(

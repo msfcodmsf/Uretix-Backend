@@ -445,8 +445,6 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id;
     const productData = req.body;
 
-    console.log("Creating product with data:", productData);
-
     // Find producer by user ID
     const producer = await Producer.findOne({ user: userId });
 
@@ -462,7 +460,6 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       "name",
       "description",
       "subSubCategory",
-      "productType",
       "availableQuantity",
       "materialType",
       "materials",
@@ -483,15 +480,6 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Validate productType
-    if (!["yarim-mamul", "bitmis-urun"].includes(productData.productType)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Geçersiz ürün tipi. 'yarim-mamul' veya 'bitmis-urun' olmalıdır",
-      });
-    }
-
     // Validate materialType
     if (!productData.materialType) {
       return res.status(400).json({
@@ -501,16 +489,27 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     }
 
     // Validate materials
-    if (
-      !productData.materials ||
-      !Array.isArray(productData.materials) ||
-      productData.materials.length === 0
-    ) {
+
+    // Filter out empty materials and validate
+    let validMaterials = [];
+    if (productData.materials && Array.isArray(productData.materials)) {
+      validMaterials = productData.materials.filter(
+        (material: any) =>
+          material &&
+          material.materialType &&
+          material.materialType.trim() !== ""
+      );
+    }
+
+    if (validMaterials.length === 0) {
       return res.status(400).json({
         success: false,
         message: "En az bir materyal bilgisi gereklidir",
       });
     }
+
+    // Update productData with filtered materials
+    productData.materials = validMaterials;
 
     // Validate productVariants
     if (
@@ -545,9 +544,17 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     // Set default values for optional fields
     const { shortDescription, ...productDataWithoutShortDescription } =
       productData;
+
+    // Ensure productCategory has a value
+    if (!productData.productCategory && productData.subSubCategory) {
+      productData.productCategory = productData.subSubCategory;
+    }
+
     const productToCreate = {
       ...productDataWithoutShortDescription,
       producer: producer._id,
+      productCategory:
+        productData.productCategory || productData.subSubCategory || "", // Default to subSubCategory if empty
       coverImage:
         productData.coverImage ||
         "https://via.placeholder.com/400x300?text=No+Image",
@@ -566,8 +573,6 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       rating: 0,
       totalRatings: 0,
     };
-
-    console.log("Product to create:", productToCreate);
 
     // Create new product
     const product = new Product(productToCreate);

@@ -5,11 +5,8 @@ export interface IProductionListing {
   id: string; // Virtual property for _id
   producer: Types.ObjectId;
   title: string;
-  description: string;
-  category?: string;
   subCategory?: string;
   subSubCategory?: string;
-  location: string;
   type: string;
   salary?: {
     min: number;
@@ -23,10 +20,7 @@ export interface IProductionListing {
   documents?: string[];
   technicalDetails?: string;
   productionQuantity?: string;
-  productionTime?: string;
-  deliveryTime?: string;
   logisticsModel?: string;
-  productionLocation?: string;
   rawMaterial?: string;
   productionMethod?: string;
   productionCategory?: string;
@@ -96,26 +90,12 @@ const productionListingSchema = new Schema<IProductionListing & Document>(
       trim: true,
       maxlength: 100,
     },
-    category: {
-      type: String,
-      trim: true,
-    },
     subCategory: {
       type: String,
       trim: true,
     },
     subSubCategory: {
       type: String,
-      trim: true,
-    },
-    description: {
-      type: String,
-      required: true,
-      maxlength: 2000,
-    },
-    location: {
-      type: String,
-      required: true,
       trim: true,
     },
     type: {
@@ -173,19 +153,7 @@ const productionListingSchema = new Schema<IProductionListing & Document>(
       type: String,
       trim: true,
     },
-    productionTime: {
-      type: String,
-      trim: true,
-    },
-    deliveryTime: {
-      type: String,
-      trim: true,
-    },
     logisticsModel: {
-      type: String,
-      trim: true,
-    },
-    productionLocation: {
       type: String,
       trim: true,
     },
