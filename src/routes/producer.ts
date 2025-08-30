@@ -248,7 +248,6 @@ router.get("/showcase/:id", async (req, res) => {
       detailImages: news.detailImages,
       category: news.category,
       subCategory: news.subCategory,
-      subSubCategory: news.subSubCategory,
       tags: news.tags,
       views: news.views,
       likes: news.likes,

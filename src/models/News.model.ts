@@ -8,7 +8,6 @@ export interface INews {
   description: string;
   category: string;
   subCategory?: string;
-  subSubCategory?: string;
   coverImage?: string;
   videoUrl?: string;
   detailImages?: string[];
@@ -46,10 +45,6 @@ const newsSchema = new Schema<INews & Document>(
       trim: true,
     },
     subCategory: {
-      type: String,
-      trim: true,
-    },
-    subSubCategory: {
       type: String,
       trim: true,
     },
